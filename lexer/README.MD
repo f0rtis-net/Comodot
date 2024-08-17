@@ -1,1 +1,0 @@
-The lexer crate contains all things related to lexical analysis: Token types, Lexer
