@@ -1,0 +1,8 @@
+[package]
+name = "llvm_codegen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+inkwell = { version = "0.5.0", features = ["llvm18-0"] }
+ast = {path = "../ast"}
