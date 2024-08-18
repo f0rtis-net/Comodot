@@ -1,66 +1,111 @@
 use std::error::Error;
+use std::path::Path;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::execution_engine::{ExecutionEngine, JitFunction};
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::OptimizationLevel;
+use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine};
+use inkwell::values::{BasicValue, BasicValueEnum};
+use ast::expressions::boolean_literal::BooleanLiteral;
+use ast::expressions::function_literal::FunctionLiteral;
+use ast::expressions::integer_literal::IntegerLiteral;
+use ast::misc::file::ParsedFile;
+use ast::primitives::statement::Statement;
+use ast::statements::block_statement::BlockStatement;
+use ast::statements::expression_statement::ExpressionStatement;
+use ast::statements::return_statement::ReturnStatement;
+use ast::Visitor;
 
-type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
-
-///
-///  JUST EXPERIMENTS
-///
-
-struct CodeGen<'ctx> {
+struct CodegenVisitor<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
-    builder: Builder<'ctx>,
-    execution_engine: ExecutionEngine<'ctx>,
+    builder: &'ctx Builder<'ctx>,
+    pub current_value: Option<BasicValueEnum<'ctx>>,
 }
 
-impl<'ctx> CodeGen<'ctx> {
-    fn jit_compile_sum(&self) -> Option<JitFunction<SumFunc>> {
-        let i64_type = self.context.i64_type();
-        let fn_type = i64_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into()], false);
-        let function = self.module.add_function("sum", fn_type, None);
-        let basic_block = self.context.append_basic_block(function, "entry");
+impl<'ctx> Visitor for CodegenVisitor<'ctx> {
+    fn visit_code_block(&mut self, code_block: &BlockStatement) {
+        for statement in &code_block.statements {
+            statement.accept(self)
+        }
+    }
 
-        self.builder.position_at_end(basic_block);
+    fn visit_integer_literal(&mut self, integer: &IntegerLiteral) {
+        let int_value = self.context.i64_type().const_int(integer.value as u64, false);
+        self.current_value = Some(BasicValueEnum::from(int_value));
+    }
 
-        let x = function.get_nth_param(0)?.into_int_value();
-        let y = function.get_nth_param(1)?.into_int_value();
-        let z = function.get_nth_param(2)?.into_int_value();
+    fn visit_expression_statement(&mut self, statement: &ExpressionStatement) {
 
-        let sum = self.builder.build_int_add(x, y, "sum").unwrap();
-        let sum = self.builder.build_int_add(sum, z, "sum").unwrap();
+    }
 
-        self.builder.build_return(Some(&sum)).unwrap();
+    fn visit_boolean_literal(&mut self, boolean: &BooleanLiteral) {
 
-        unsafe { self.execution_engine.get_function("sum").ok() }
+    }
+
+    fn visit_function(&mut self, func: &FunctionLiteral) {
+        let function_type = self.context.i64_type().fn_type(&[], false);
+        let func_declaration = self.module.add_function(func.name.as_str(), function_type, None);
+
+        let func_body = self.context.append_basic_block(func_declaration, "entry");
+        self.builder.position_at_end(func_body);
+
+        func.body.accept(self)
+    }
+
+    fn visit_return_statement(&mut self, statement: &ReturnStatement) {
+        if let Some(value) = &statement.value {
+            value.accept(self);
+            let return_value = self.current_value.as_ref().map(|v| v as &dyn BasicValue);
+            self.builder.build_return(return_value).unwrap();
+        } else {
+            self.builder.build_return(None).unwrap();
+        }
     }
 }
 
-pub fn test_sum() -> Result<(), Box<dyn Error>> {
+pub fn test_generation(file: &ParsedFile) -> Result<(), Box<dyn Error>> {
+    //init environment
     let context = Context::create();
-    let module = context.create_module("sum");
-    let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
-    let codegen = CodeGen {
+    let module = context.create_module(file.get_name().as_str());
+    let builder = context.create_builder();
+
+    let mut visitor = CodegenVisitor {
         context: &context,
         module,
-        builder: context.create_builder(),
-        execution_engine,
+        builder: &builder,
+        current_value: None,
     };
 
-    let sum = codegen.jit_compile_sum().ok_or("Unable to JIT compile `sum`")?;
-
-    let x = 1u64;
-    let y = 2u64;
-    let z = 4u64;
-
-    unsafe {
-        println!("{} + {} + {} = {}", x, y, z, sum.call(x, y, z));
-        assert_eq!(sum.call(x, y, z), x + y + z);
+    for expr in &file.expressions {
+        expr.accept(&mut visitor);
     }
+
+    //generate object file
+    Target::initialize_all(&Default::default());
+
+    let triple = TargetMachine::get_default_triple();
+
+    visitor.module.set_triple(&triple);
+
+    let path = Path::new("test.ll");
+
+    visitor.module.print_to_file(path).unwrap();
+
+    let target = Target::from_triple(&triple).unwrap();
+
+    let machine = target.create_target_machine(
+        &triple,
+        "generic",
+        "",
+        OptimizationLevel::Default,
+        RelocMode::Default,
+        CodeModel::Default
+    ).expect("Could not create target machine");
+
+    let path = Path::new("output.o");
+
+    machine.write_to_file(&visitor.module, FileType::Object, path).expect("Failed to write object file");
 
     Ok(())
 }

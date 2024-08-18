@@ -1,3 +1,6 @@
+pub mod keywords;
+pub mod reserved_symbols;
+
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum NumberBase {
     BINARY,
@@ -7,9 +10,16 @@ pub enum NumberBase {
 }
 
 #[derive(Clone, Debug, PartialEq, Copy)]
+pub enum Keyword {
+    VOID,
+    IF,
+    ELSE,
+}
+
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub enum TokenType {
     NUMBER(NumberBase),
-    KEYWORD,
+    KEYWORD(Keyword),
     IDENTIFIER,
     UNDEFINED,
     GRID,

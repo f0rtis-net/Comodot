@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use lazy_static::lazy_static;
-use crate::tokens::TokenType;
+use crate::TokenType;
 
 lazy_static!(
     pub static ref RESERVED_SYMBOLS: HashMap<char, TokenType> = HashMap::from([

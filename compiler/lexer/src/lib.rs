@@ -1,12 +1,10 @@
 use std::ops::Deref;
-use crate::tokens::{NumberBase, Position, Token, TokenType};
-use crate::keywords::KEYWORDS;
-use crate::reserved_symbols::RESERVED_SYMBOLS;
-pub mod tokens;
+use tokens::{NumberBase, Position, Token, TokenType};
+use tokens::keywords::RESERVED_KEYWORDS;
+use tokens::reserved_symbols::RESERVED_SYMBOLS;
+
 pub mod cursor;
-mod keywords;
 mod tests;
-mod reserved_symbols;
 
 
 pub struct Lexer<'a> {
@@ -144,8 +142,10 @@ impl<'a> Lexer<'a> {
                         match self.try_to_parse_identifier(first) {
 
                             Some(keyword) => {
-                                if KEYWORDS.contains(&keyword.as_str()) {
-                                    (TokenType::KEYWORD, String::from(keyword))
+                                let result = RESERVED_KEYWORDS.get(&keyword.as_str());
+
+                                if result.is_some() {
+                                    (TokenType::KEYWORD(*result.unwrap()), String::from(keyword))
                                 } else {
                                     (TokenType::IDENTIFIER, String::from(keyword))
                                 }
