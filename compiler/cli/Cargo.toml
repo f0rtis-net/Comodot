@@ -8,3 +8,5 @@ llvm_codegen = {path = "../llvm_codegen"}
 beautiful_ast_printer = {path = "../beautiful_ast_printer"}
 ast = {path = "../ast"}
 tokens = {path = "../tokens"}
+lexer = {path = "../lexer"}
+parser = {path = "../parser"}

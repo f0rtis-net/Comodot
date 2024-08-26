@@ -1,14 +1,14 @@
-use crate::AstExpression;
+use crate::{AstNode};
 
 pub struct ParsedFile {
     name: String,
     path: String,
     hash: String,
-    pub expressions: Vec<AstExpression>,
+    pub expressions: Vec<AstNode>,
 }
 
 impl ParsedFile {
-    pub fn new(name: String, hash: String, path: String, expressions: Vec<AstExpression>) -> Self {
+    pub fn new(name: String, hash: String, path: String, expressions: Vec<AstNode>) -> Self {
         Self {
             name,
             path,

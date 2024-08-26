@@ -2,28 +2,39 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 pub struct Cursor<'a> {
-    text_source: Peekable<Chars<'a>>,
-    column: i32,
-    line: i32,
+    chars: Peekable<Chars<'a>>,
+    column: usize,
+    line: usize,
 }
+
+const EOF: char = '\0';
 
 impl<'a> Cursor<'a> {
     pub fn new(text_source: &'a str) -> Cursor<'a> {
         Self {
-            text_source: text_source.chars().peekable(),
+            chars: text_source.chars().peekable(),
             column: 1,
             line: 1,
         }
     }
 
-    pub fn peek(&mut self) -> Option<char> {
-        let symbol = *self.text_source.peek()?;
-
-        Some(symbol)
+    pub fn peek(&mut self) -> &char {
+        self.chars.peek().unwrap_or(&EOF)
     }
 
-    pub fn next(&mut self) -> Option<char> {
-        let symbol = self.text_source.next()?;
+    pub fn first(&mut self) -> char {
+        self.chars.clone().next().unwrap_or(EOF)
+    }
+
+    pub fn next(&mut self) -> char {
+        let mut iter = self.chars.clone();
+        iter.next();
+
+        iter.next().unwrap_or(EOF)
+    }
+
+    pub fn bump(&mut self) -> Option<char> {
+        let symbol = self.chars.next()?;
 
         self.update_position(symbol);
 
@@ -31,12 +42,10 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn skip_until(&mut self, predicate: fn(&char) -> bool) {
-        while self.peek().is_some() && predicate(&self.peek().unwrap()) {
-            let symbol = self.text_source.next().unwrap();
-
+        while predicate(&self.first()) && self.first() != EOF {
+            let symbol = self.first();
             self.update_position(symbol);
-
-            self.next();
+            self.bump();
         }
     }
 
@@ -49,7 +58,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    pub fn column(&self) -> i32 {self.column}
+    pub fn column(&self) -> usize {self.column}
 
-    pub fn line(&self) -> i32 {self.line}
+    pub fn line(&self) -> usize {self.line}
 }

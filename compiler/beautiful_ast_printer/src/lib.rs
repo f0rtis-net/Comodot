@@ -1,14 +1,13 @@
-use color_print::cprint;
+use color_print::{cprint, cprintln};
 use ast::{Visitor};
-use ast::expressions::boolean_literal::BooleanLiteral;
-use ast::expressions::function_literal::FunctionLiteral;
-use ast::expressions::integer_literal::IntegerLiteral;
+use ast::nodes::boolean_literal::BooleanLiteral;
+use ast::nodes::function_literal::FunctionLiteral;
+use ast::nodes::integer_literal::IntegerLiteral;
 use ast::misc::file::ParsedFile;
-use ast::primitives::expression::Expression;
-use ast::primitives::statement::Statement;
-use ast::statements::block_statement::BlockStatement;
-use ast::statements::expression_statement::ExpressionStatement;
-use ast::statements::return_statement::ReturnStatement;
+use ast::nodes::binary_expression::BinaryExpression;
+use ast::nodes::block_statement::BlockStatement;
+use ast::nodes::return_statement::ReturnStatement;
+use ast::primitives::node::Node;
 
 pub struct PrintVisitor {
     indent: usize,
@@ -36,23 +35,22 @@ impl Visitor for PrintVisitor {
     }
 
     fn visit_integer_literal(&mut self, integer: &IntegerLiteral) {
-        println!("{}IntegerLiteral(value: {})", self.indent(), integer.value);
-    }
-
-    fn visit_expression_statement(&mut self, statement: &ExpressionStatement) {
-        println!("{}ExpressionStatement(", self.indent());
-        self.indent += 2;
-        statement.expression.accept(self);
-        self.indent -= 2;
-        println!("{}))", self.indent());
+        cprintln!("{}<cyan>IntegerLiteral(value: {})</>", self.indent(), integer.value);
     }
 
     fn visit_boolean_literal(&mut self, boolean: &BooleanLiteral) {
-        println!("{}BooleanLiteral(value: {})", self.indent(), boolean.val);
+        cprintln!("{}<cyan>BooleanLiteral(value: {})</>", self.indent(), boolean.val);
     }
 
     fn visit_function(&mut self, func: &FunctionLiteral) {
-        cprint!("{}<green>FunctionLiteral(name: \"{}\", visible: {}, body: </>\n", self.indent(), func.name, func.visibility);
+        cprintln!("{}<green>Function(", self.indent());
+        self.indent += 1;
+        cprintln!("{}<green>name:</> <cyan>\"{}\"</>", self.indent(), func.name);
+       // cprintln!("{}<green>visibility:</> <cyan>{:?}</>", self.indent(), func.visibility);
+        //cprintln!("{}<green>ret type:</> <cyan>{:?}</>", self.indent(), func.return_type);
+        cprintln!("{}<green>body:</>", self.indent());
+        self.indent -= 1;
+
         self.indent += 2;
         func.body.accept(self);
         self.indent -= 2;
@@ -60,18 +58,37 @@ impl Visitor for PrintVisitor {
     }
 
     fn visit_return_statement(&mut self, statement: &ReturnStatement) {
-        cprint!("{} Return statement: ", self.indent());
+        cprint!("{}<red>Return {{\n ", self.indent());
 
-        let saved_ident = self.indent;
-        self.indent = 0;
+        self.indent += 2;
 
         if statement.value.is_none() {
-            cprint!("<red>None</>");
+            cprint!("{}None\n", self.indent());
         } else {
             statement.value.as_ref().unwrap().accept(self);
         }
 
-        self.indent = saved_ident;
+        self.indent -= 2;
+
+        cprint!("{}<red>}}</>\n ", self.indent());
+    }
+
+    fn visit_binary_expression(&mut self, expr: &BinaryExpression) {
+        cprintln!("{}<blue>BinaryExpression {{</>", self.indent());
+        self.indent += 2;
+
+        cprintln!("{}<blue>left:</>", self.indent());
+        self.indent += 2;
+        expr.left.accept(self);
+        self.indent -= 2;
+        cprintln!("{}<blue>right:</>", self.indent());
+        self.indent += 2;
+        expr.right.accept(self);
+        self.indent -= 2;
+        //cprintln!("{}<blue>operator:</> <cyan>{:?}</>", self.indent(), expr.op);
+
+        self.indent -= 2;
+        cprintln!("{}<blue>}}</>", self.indent());
     }
 }
 

@@ -1,66 +1,23 @@
+use std::fmt;
+use std::fmt::Formatter;
+
 pub mod keywords;
 pub mod reserved_symbols;
 
 #[derive(Clone, Debug, PartialEq, Copy)]
-pub enum NumberBase {
-    BINARY,
-    DECIMAL,
-    HEX,
-    OCTAL
-}
-
-#[derive(Clone, Debug, PartialEq, Copy)]
-pub enum Keyword {
-    VOID,
-    IF,
-    ELSE,
-}
-
-#[derive(Clone, Debug, PartialEq, Copy)]
-pub enum TokenType {
-    NUMBER(NumberBase),
-    KEYWORD(Keyword),
-    IDENTIFIER,
-    UNDEFINED,
-    GRID,
-    EXCLAMATION,
-    AMPERSAND,
-    OR,
-    VerticalSlash,
-    STAR,
-    LBRACE,
-    RBRACE,
-    LFBRACE,
-    RFBRACE,
-    COMMA,
+pub enum Token {
+    INTEGER(i64),
+    REAL(f64),
     PLUS,
     MINUS,
     SLASH,
-    PERCENT,
-    DoubleQuote,
-    QUOTE,
-    ARROW,
-    LT,
-    GT,
-    EQ,
-    DoubleEQ,
-    AND,
-    DotComma,
-    DoubleDot,
-    RStraitBrace,
-    LStraitBrace,
-    UpArrow,
-    TILDA,
-    BackSlash
+    STAR,
+    LBRACKET,
+    RBRACKET
 }
 
-pub struct Position {
-    pub line: i32,
-    pub column: i32,
-}
-
-pub struct Token{
-    pub type_: TokenType,
-    pub position: Position,
-    pub value: String,
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
 }

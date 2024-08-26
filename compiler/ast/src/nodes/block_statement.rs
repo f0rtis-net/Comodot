@@ -1,13 +1,20 @@
-use crate::{AstStatement, Visitor};
+use crate::{AstNode, Visitor};
 use crate::primitives::node::Node;
-use crate::primitives::statement::Statement;
 
 #[derive(Clone)]
 pub struct BlockStatement {
-    pub statements: Vec<AstStatement>,
+    pub statements: Vec<AstNode>,
 }
 
 impl Node for BlockStatement {
+    fn accept(&self, visitor: &mut dyn Visitor) {
+        visitor.visit_code_block(self)
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Node> {
+        Box::new(self.clone())
+    }
+
     fn get_literal(&self) -> String {
         let mut statements = String::new();
 
@@ -16,15 +23,5 @@ impl Node for BlockStatement {
         }
 
         format!("{{\n{}\n}}", statements)
-    }
-}
-
-impl Statement for BlockStatement {
-    fn accept(&self, visitor: &mut dyn Visitor) {
-        visitor.visit_code_block(self)
-    }
-
-    fn clone_boxed(&self) -> Box<dyn Statement> {
-        Box::new(self.clone())
     }
 }

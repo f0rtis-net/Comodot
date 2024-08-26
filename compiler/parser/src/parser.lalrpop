@@ -1,0 +1,59 @@
+use ast::misc::file::ParsedFile;
+use ast::AstNode;
+use tokens::Token;
+use ast::primitives::node::Node;
+use ast::nodes::binary_expression::BinaryExpression;
+use ast::nodes::real_literal::RealLiteral;
+use ast::nodes::integer_literal::IntegerLiteral;
+
+
+grammar<'input>(input: &'input str);
+
+pub File: ParsedFile = {
+    <nodes: (PlusMinus)*> => {
+          ParsedFile::new(
+            String::from("lol"),
+            String::from("kek"),
+            String::from("cheburek"),
+            nodes
+          )
+    }
+};
+
+PlusMinus: AstNode = {
+    <a: PlusMinus> PLUS <b: DivMul> => BinaryExpression{left: a,right: b,operator: Token::PLUS}.clone_boxed(),
+    <a: PlusMinus> MINUS <b: DivMul> => BinaryExpression{left: a,right: b,operator: Token::MINUS}.clone_boxed(),
+    <a: DivMul> => a
+};
+
+DivMul: AstNode = {
+    <a: DivMul> STAR <b: Expr> => BinaryExpression{left: a,right: b,operator: Token::STAR}.clone_boxed(),
+    <a: DivMul> SLASH <b: Expr> => BinaryExpression{left: a,right: b,operator: Token::SLASH}.clone_boxed(),
+    <a: Expr> => a
+};
+
+Expr: AstNode = {
+    LBRACKET <e: PlusMinus> RBRACKET => e,
+    INTEGER => IntegerLiteral { value: <> }.clone_boxed(),
+    REAL => RealLiteral {value: <>}.clone_boxed(),
+};
+
+Exp2: AstNode = {
+
+};
+
+
+extern {
+    type Location = usize;
+
+    enum Token {
+        INTEGER => Token::INTEGER(<i64>),
+        REAL => Token::REAL(<f64>),
+        PLUS => Token::PLUS,
+        MINUS => Token::MINUS,
+        SLASH => Token::SLASH,
+        STAR => Token::STAR,
+        LBRACKET => Token::LBRACKET,
+        RBRACKET => Token::RBRACKET
+    }
+}

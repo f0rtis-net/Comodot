@@ -1,178 +1,134 @@
-use std::ops::Deref;
-use tokens::{NumberBase, Position, Token, TokenType};
-use tokens::keywords::RESERVED_KEYWORDS;
+use std::ops::{Add, Deref};
 use tokens::reserved_symbols::RESERVED_SYMBOLS;
+use tokens::Token;
+use tokens::Token::{INTEGER, REAL};
+use crate::cursor::Cursor;
+use crate::DigitBase::DECIMAL;
 
 pub mod cursor;
 mod tests;
 
+pub type LexerResult<Tok, Loc, Err> = Result<(Loc, Tok, Loc), Err>;
+
+#[derive(Eq, PartialEq)]
+enum DigitBase {
+    HEX,
+    OCTAL,
+    DECIMAL,
+    BINARY,
+}
 
 pub struct Lexer<'a> {
-    cursor: cursor::Cursor<'a>,
+    cursor: Cursor<'a>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(source: &str) -> Lexer {
-        Lexer {
-            cursor: cursor::Cursor::new(source),
+
+    pub fn new(input: &'a str) -> Lexer<'a> {
+        Self {
+            cursor: Cursor::new(input),
         }
     }
+    fn process_number(&mut self, first: char) -> LexerResult<Token, usize, &'static str> {
+        // select number base
+        let mut base = DECIMAL;
 
-    fn try_to_parse_identifier(&mut self, symbol: char) -> Option<String> {
-        if !symbol.is_ascii_alphanumeric() {
-            return None;
-        }
+        let mut real_flag = false;
 
-        let mut identifier = String::from(symbol);
+        if first == '0' {
+            base = match self.cursor.first() {
+                'x' => DigitBase::HEX,
+                'b' => DigitBase::BINARY,
+                'o' => DigitBase::OCTAL,
+                '0'..='9' | '_' => DECIMAL,
+                '.' => {real_flag = true; DECIMAL},
 
-        while self.cursor.peek().is_some() && self.cursor.peek()?.is_ascii_alphanumeric() {
-            let val = self.cursor.next()?;
+                //just a zero
+                _ => return Ok((self.cursor.column(), INTEGER(0), self.cursor.line()))
+            };
 
-            identifier.push(val);
-        }
-
-        Some(identifier)
-    }
-
-    fn try_to_parse_number(&mut self, symbol: char) -> Option<(TokenType, String)> {
-        let mut number = String::from(symbol);
-
-        let base = if symbol == '0' {
-
-            match self.cursor.next()? {
-                'b' => NumberBase::BINARY,
-
-                'x' => NumberBase::HEX,
-
-                'o' => NumberBase::OCTAL,
-
-                '0'..='9' => NumberBase::DECIMAL,
-
-                _ => return Some(
-                    (TokenType::NUMBER(NumberBase::DECIMAL), number)
-                )
+            //scip base marker symbols
+            if base != DECIMAL || (base == DECIMAL && real_flag) {
+                self.cursor.bump();
             }
-        } else {
-            NumberBase::DECIMAL
+        }
+
+
+        // process number
+        let mut result_number = String::from(first);
+
+        loop {
+            match self.cursor.first() {
+                '_' => { self.cursor.bump(); },
+                '0'..='9' => result_number.push(self.cursor.bump().unwrap()),
+                'a'..='f' | 'A'..='F' => {
+                    if base == DigitBase::HEX  {
+                        result_number.push(self.cursor.bump().unwrap())
+                    } else {
+                        return Err("Invalid digits in non hexadecimal number");
+                    }
+                },
+                _ => break
+            }
+        }
+
+        if real_flag {
+            if base != DECIMAL {
+                return Err("Invalid number format parsed");
+            }
+
+            return Ok((
+                self.cursor.column(),
+                REAL(result_number.parse::<f64>().unwrap()),
+                self.cursor.line()
+            ));
+        }
+
+        //convert to integer
+
+        let result = match base {
+            DECIMAL => i64::from_str_radix(result_number.as_str(), 10),
+            DigitBase::HEX => i64::from_str_radix(result_number.as_str(), 16),
+            DigitBase::OCTAL => i64::from_str_radix(result_number.as_str(), 8),
+            DigitBase::BINARY => i64::from_str_radix(result_number.as_str(), 2),
         };
 
-        while self.cursor.peek().is_some() {
-            let val = self.cursor.next()?;
-
-            if val == '_' {
-                continue
-            }
-
-            if !val.is_ascii_alphanumeric() {
-                break
-            }
-
-            number.push(val);
+        if result.is_err() {
+            return Err("Invalid number format parsed");
         }
 
-        Some((TokenType::NUMBER(base), number))
+        Ok((
+            self.cursor.column(),
+            INTEGER(result.unwrap()),
+            self.cursor.line()
+        ))
     }
+}
 
-    fn try_to_parse_double_char(&mut self, second: char, result: &str, single_type: TokenType, double_type: TokenType) -> (TokenType, String) {
-        if self.cursor.peek().unwrap_or('\0') == second {
-            self.cursor.next();
-            (double_type, String::from(result))
-        } else {
-            (single_type, String::from(result))
-        }
-    }
+impl<'a> Iterator for Lexer<'a> {
+    type Item = LexerResult<Token, usize, &'static str>;
 
-    pub fn process_token(&mut self) -> Result<Option<Token>, String> {
-        let first = match self.cursor.next() {
-
-            Some(c) => c,
-
-            None => return Ok(None),
-        };
-
-        let mut token_type = TokenType::UNDEFINED;
-        let mut token_value = String::new();
+    fn next(&mut self) -> Option<Self::Item> {
+        let first = self.cursor.bump()?;
 
         if first.is_whitespace() {
             self.cursor.skip_until( |ch| ch.is_whitespace() );
-            return self.process_token()
+            return self.next()
         }
 
-        (token_type, token_value) = match RESERVED_SYMBOLS.get(&first) {
-
-            Some(type_) => (*type_.deref(), String::from(first)),
-
-            _ => {
-                match first {
-
-                    '0'..='9' => match self.try_to_parse_number(first) {
-                        Some(num) => num,
-                        None => return Ok(None)
-                    }
-
-                    '&' => self.try_to_parse_double_char(
-                        '&',
-                        "&&",
-                        TokenType::AMPERSAND,
-                        TokenType::AND
-                    ),
-
-                    '=' => self.try_to_parse_double_char(
-                        '=',
-                        "==",
-                        TokenType::EQ,
-                        TokenType::DoubleEQ
-                    ),
-
-                    '-' => self.try_to_parse_double_char(
-                        '>',
-                        "->",
-                        TokenType::MINUS,
-                        TokenType::ARROW
-                    ),
-
-                    '|' => self.try_to_parse_double_char(
-                        '|',
-                        "||",
-                        TokenType::VerticalSlash,
-                        TokenType::OR
-                    ),
-
-                    _ => {
-                        match self.try_to_parse_identifier(first) {
-
-                            Some(keyword) => {
-                                let result = RESERVED_KEYWORDS.get(&keyword.as_str());
-
-                                if result.is_some() {
-                                    (TokenType::KEYWORD(*result.unwrap()), String::from(keyword))
-                                } else {
-                                    (TokenType::IDENTIFIER, String::from(keyword))
-                                }
-                            }
-
-                            None => return Err (
-                                format!("Can't process char: {} at line {} | column {}", first, self.cursor.line(), self.cursor.column())
-                            ),
-                        }
-                    }
-                }
-            }
-        };
-
-        if token_type == TokenType::UNDEFINED {
-            return Err (
-                format!("Can't process token with start char: {} at line {} | column {}", first, self.cursor.line(), self.cursor.column())
-            )
+        if let Some(token) = RESERVED_SYMBOLS.get(&first) {
+            return Some(
+                Ok((
+                    self.cursor.column(),
+                    *token,
+                    self.cursor.line(),
+                ))
+            );
         }
 
-        Ok(Some(Token {
-            type_: token_type,
-            value: token_value,
-            position: Position {
-                line: self.cursor.line(),
-                column: self.cursor.column(),
-            },
-        }))
+        match first {
+            c @ '0'..='9' => Some(self.process_number(c)),
+            _ => Some(Err("Unknown symbol"))
+        }
     }
 }

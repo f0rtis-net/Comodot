@@ -1,4 +1,3 @@
-use crate::primitives::expression::Expression;
 use crate::primitives::node::Node;
 use crate::Visitor;
 
@@ -8,17 +7,15 @@ pub struct IntegerLiteral {
 }
 
 impl Node for IntegerLiteral {
-    fn get_literal(&self) -> String {
-        String::from(self.value.to_string())
-    }
-}
-
-impl Expression for IntegerLiteral {
     fn accept(&self, visitor: &mut dyn Visitor) {
         visitor.visit_integer_literal(self)
     }
 
-    fn clone_boxed(&self) -> Box<dyn Expression> {
+    fn clone_boxed(&self) -> Box<dyn Node> {
         Box::new(self.clone())
+    }
+
+    fn get_literal(&self) -> String {
+        String::from(self.value.to_string())
     }
 }

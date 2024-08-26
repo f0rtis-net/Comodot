@@ -1,4 +1,3 @@
-use crate::primitives::expression::Expression;
 use crate::primitives::node::Node;
 use crate::Visitor;
 
@@ -8,17 +7,15 @@ pub struct BooleanLiteral {
 }
 
 impl Node for BooleanLiteral {
-    fn get_literal(&self) -> String {
-        self.val.to_string()
-    }
-}
-
-impl Expression for BooleanLiteral {
     fn accept(&self, visitor: &mut dyn Visitor) {
         visitor.visit_boolean_literal(self)
     }
 
-    fn clone_boxed(&self) -> Box<dyn Expression> {
+    fn clone_boxed(&self) -> Box<dyn Node> {
         Box::new(self.clone())
+    }
+
+    fn get_literal(&self) -> String {
+        self.val.to_string()
     }
 }
