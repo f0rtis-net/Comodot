@@ -24,4 +24,8 @@ impl Node for BlockStatement {
 
         format!("{{\n{}\n}}", statements)
     }
+
+    fn get_type(&self) -> String {
+        String::from("BlockStatement")
+    }
 }

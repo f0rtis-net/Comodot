@@ -10,3 +10,5 @@ ast = {path = "../ast"}
 tokens = {path = "../tokens"}
 lexer = {path = "../lexer"}
 parser = {path = "../parser"}
+itt = {path = "../itt"}
+itt_semantic_analyzer = {path = "../itt_semantic_analyzer"}

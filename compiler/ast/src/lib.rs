@@ -3,8 +3,8 @@ use crate::nodes::function_literal::FunctionLiteral;
 use crate::nodes::integer_literal::IntegerLiteral;
 use crate::primitives::node::Node;
 use nodes::block_statement::BlockStatement;
-use nodes::return_statement::ReturnStatement;
 use crate::nodes::binary_expression::BinaryExpression;
+use crate::nodes::return_expression::ReturnExpression;
 
 pub mod primitives;
 pub mod nodes;
@@ -17,6 +17,6 @@ pub trait Visitor {
     fn visit_integer_literal(&mut self, integer: &IntegerLiteral);
     fn visit_boolean_literal(&mut self, boolean: &BooleanLiteral);
     fn visit_function(&mut self, func: &FunctionLiteral);
-    fn visit_return_statement(&mut self, statement: &ReturnStatement);
     fn visit_binary_expression(&mut self, expression: &BinaryExpression);
+    fn visit_return_expression(&mut self, expr: &ReturnExpression);
 }

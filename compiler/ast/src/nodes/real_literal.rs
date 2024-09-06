@@ -18,4 +18,8 @@ impl Node for RealLiteral {
     fn get_literal(&self) -> String {
         String::from(self.value.to_string())
     }
+
+    fn get_type(&self) -> String {
+        String::from("RealLiteral")
+    }
 }

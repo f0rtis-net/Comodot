@@ -1,11 +1,8 @@
-use std::fmt;
-use std::fmt::Formatter;
-
 pub mod keywords;
-pub mod reserved_symbols;
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Token {
+    IDENTIFIER(&'static str),
     INTEGER(i64),
     REAL(f64),
     PLUS,
@@ -13,11 +10,21 @@ pub enum Token {
     SLASH,
     STAR,
     LBRACKET,
-    RBRACKET
+    RBRACKET,
+    LRBRACKET,
+    RRBRACKET,
+    SEMICOLON,
+    FUNCTION,
+    GT, LT, EQ,
+    IntType,
+    VoidType,
+    CharType,
+    RealType,
+    BooleanType,
+    UnknownType,
+    CONST,
+    PUBLIC,
+    PRIVATE,
+    RETURN
 }
 
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
-    }
-}

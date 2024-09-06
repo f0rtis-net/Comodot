@@ -6,7 +6,7 @@ use ast::nodes::integer_literal::IntegerLiteral;
 use ast::misc::file::ParsedFile;
 use ast::nodes::binary_expression::BinaryExpression;
 use ast::nodes::block_statement::BlockStatement;
-use ast::nodes::return_statement::ReturnStatement;
+use ast::nodes::return_expression::ReturnExpression;
 use ast::primitives::node::Node;
 
 pub struct PrintVisitor {
@@ -46,31 +46,15 @@ impl Visitor for PrintVisitor {
         cprintln!("{}<green>Function(", self.indent());
         self.indent += 1;
         cprintln!("{}<green>name:</> <cyan>\"{}\"</>", self.indent(), func.name);
-       // cprintln!("{}<green>visibility:</> <cyan>{:?}</>", self.indent(), func.visibility);
-        //cprintln!("{}<green>ret type:</> <cyan>{:?}</>", self.indent(), func.return_type);
+        cprintln!("{}<green>ret type:</> <cyan>{:?}</>", self.indent(), func.return_type);
+        cprintln!("{}<green>visibility:</> <cyan>{:?}</>", self.indent(), func.visibility);
         cprintln!("{}<green>body:</>", self.indent());
         self.indent -= 1;
 
         self.indent += 2;
         func.body.accept(self);
         self.indent -= 2;
-        cprint!("{}<green>))</>", self.indent());
-    }
-
-    fn visit_return_statement(&mut self, statement: &ReturnStatement) {
-        cprint!("{}<red>Return {{\n ", self.indent());
-
-        self.indent += 2;
-
-        if statement.value.is_none() {
-            cprint!("{}None\n", self.indent());
-        } else {
-            statement.value.as_ref().unwrap().accept(self);
-        }
-
-        self.indent -= 2;
-
-        cprint!("{}<red>}}</>\n ", self.indent());
+        cprintln!("{}<green>))</>", self.indent());
     }
 
     fn visit_binary_expression(&mut self, expr: &BinaryExpression) {
@@ -85,10 +69,24 @@ impl Visitor for PrintVisitor {
         self.indent += 2;
         expr.right.accept(self);
         self.indent -= 2;
-        //cprintln!("{}<blue>operator:</> <cyan>{:?}</>", self.indent(), expr.op);
+        cprintln!("{}<blue>operator:</> <cyan>{:?}</>", self.indent(), expr.operator);
 
         self.indent -= 2;
         cprintln!("{}<blue>}}</>", self.indent());
+    }
+
+    fn visit_return_expression(&mut self, expression: &ReturnExpression) {
+        cprintln!("<red>{}Return {{</>", self.indent());
+        self.indent += 2;
+
+        if expression.expr.is_none() {
+            cprintln!("{}<cyan>NONE</>", self.indent());
+        } else {
+            expression.clone().expr.unwrap().accept(self);
+        }
+
+        self.indent -= 2;
+        cprintln!("{}<red>}}</>", self.indent());
     }
 }
 

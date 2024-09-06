@@ -18,4 +18,8 @@ impl Node for IntegerLiteral {
     fn get_literal(&self) -> String {
         String::from(self.value.to_string())
     }
+
+    fn get_type(&self) -> String {
+        String::from("IntegerLiteral")
+    }
 }

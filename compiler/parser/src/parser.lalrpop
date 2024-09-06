@@ -5,12 +5,14 @@ use ast::primitives::node::Node;
 use ast::nodes::binary_expression::BinaryExpression;
 use ast::nodes::real_literal::RealLiteral;
 use ast::nodes::integer_literal::IntegerLiteral;
-
+use ast::nodes::block_statement::BlockStatement;
+use ast::nodes::function_literal::FunctionLiteral;
+use ast::nodes::return_expression::ReturnExpression;
 
 grammar<'input>(input: &'input str);
 
 pub File: ParsedFile = {
-    <nodes: (PlusMinus)*> => {
+    <nodes: (RootConstructions)*> => {
           ParsedFile::new(
             String::from("lol"),
             String::from("kek"),
@@ -20,28 +22,87 @@ pub File: ParsedFile = {
     }
 };
 
-PlusMinus: AstNode = {
-    <a: PlusMinus> PLUS <b: DivMul> => BinaryExpression{left: a,right: b,operator: Token::PLUS}.clone_boxed(),
-    <a: PlusMinus> MINUS <b: DivMul> => BinaryExpression{left: a,right: b,operator: Token::MINUS}.clone_boxed(),
-    <a: DivMul> => a
+RootConstructions: AstNode = {
+    <visible: (PUBLIC)?> FUNCTION <func: Function> => {
+        let mut f = func;
+
+        let v_code = match visible {
+            Some(_) => Token::PUBLIC,
+            None => Token::PRIVATE
+        };
+
+        f.visibility = v_code;
+
+        f.clone_boxed()
+    },
+
+    CONST <t: Type> <name: IDENTIFIER> EQ PlusMinusExpr SEMICOLON => {
+        IntegerLiteral{value: 0}.clone_boxed()
+    },
 };
 
-DivMul: AstNode = {
-    <a: DivMul> STAR <b: Expr> => BinaryExpression{left: a,right: b,operator: Token::STAR}.clone_boxed(),
-    <a: DivMul> SLASH <b: Expr> => BinaryExpression{left: a,right: b,operator: Token::SLASH}.clone_boxed(),
-    <a: Expr> => a
+Function: FunctionLiteral = {
+    <name: IDENTIFIER> LBRACKET RBRACKET <ret_type: (GT Type)?> <block: Block> => {
+        let ret_t = match ret_type {
+            Some((_, _type)) => _type,
+            None => Token::VoidType
+        };
+
+        FunctionLiteral { name: String::from(name), return_type: ret_t, visibility: Token::PRIVATE, body: block }
+    }
 };
 
-Expr: AstNode = {
-    LBRACKET <e: PlusMinus> RBRACKET => e,
+Block: BlockStatement = {
+    LRBRACKET RRBRACKET => BlockStatement{statements: vec![]},
+
+    LRBRACKET <expr: BasicExpressions> <args: (SEMICOLON BasicExpressions)*> (SEMICOLON)? RRBRACKET => {
+        let mut vec = vec![expr];
+        for (_, arg) in args.into_iter() { vec.push(arg); }
+
+        BlockStatement{statements: vec}
+    },
+};
+
+BasicExpressions: AstNode = {
+    RETURN <ret: Return> => ret,
+};
+
+Return: AstNode = {
+    SEMICOLON => ReturnExpression{expr: None}.clone_boxed(),
+
+    <expr: PlusMinusExpr> => {
+        ReturnExpression{expr: Some(expr)}.clone_boxed()
+    },
+};
+
+PlusMinusExpr: AstNode = {
+    <l: PlusMinusExpr> PLUS <r: DivMulExpr> => BinaryExpression { left: l,right: r,operator: Token::PLUS }.clone_boxed(),
+    <l: PlusMinusExpr> MINUS <r: DivMulExpr> => BinaryExpression { left: l,right: r,operator: Token::MINUS }.clone_boxed(),
+    <div_mul: DivMulExpr> => div_mul,
+};
+
+DivMulExpr: AstNode = {
+    <l: DivMulExpr> STAR <r: TopLevelExpressions> => BinaryExpression { left: l,right: r,operator: Token::PLUS }.clone_boxed(),
+    <l: DivMulExpr> SLASH <r: TopLevelExpressions> => BinaryExpression { left: l,right: r,operator: Token::MINUS }.clone_boxed(),
+    <e: TopLevelExpressions> => e
+};
+
+TopLevelExpressions: AstNode = {
+    LBRACKET <e: PlusMinusExpr> RBRACKET => e,
+
     INTEGER => IntegerLiteral { value: <> }.clone_boxed(),
-    REAL => RealLiteral {value: <>}.clone_boxed(),
+
+    <b: Block> => b.clone_boxed(),
 };
 
-Exp2: AstNode = {
-
+Type: Token = {
+    <id: IDENTIFIER> => match id {
+        "Int" => Token::IntType,
+        "Bool" => Token::BooleanType,
+        "Char" => Token::CharType,
+        id => Token::UnknownType
+    }
 };
-
 
 extern {
     type Location = usize;
@@ -54,6 +115,18 @@ extern {
         SLASH => Token::SLASH,
         STAR => Token::STAR,
         LBRACKET => Token::LBRACKET,
-        RBRACKET => Token::RBRACKET
+        RBRACKET => Token::RBRACKET,
+        LRBRACKET => Token::LRBRACKET,
+        RRBRACKET => Token::RRBRACKET,
+        SEMICOLON => Token::SEMICOLON,
+        FUNCTION => Token::FUNCTION,
+        IDENTIFIER => Token::IDENTIFIER(<&'static str>),
+        GT => Token::GT,
+        LT => Token::LT,
+        EQ => Token::EQ,
+        CONST => Token::CONST,
+        PUBLIC => Token::PUBLIC,
+        PRIVATE => Token::PRIVATE,
+        RETURN => Token::RETURN,
     }
 }

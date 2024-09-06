@@ -1,7 +1,7 @@
 use std::ops::{Add, Deref};
-use tokens::reserved_symbols::RESERVED_SYMBOLS;
+use tokens::keywords::RESERVED_KEYWORDS;
 use tokens::Token;
-use tokens::Token::{INTEGER, REAL};
+use tokens::Token::{IDENTIFIER, INTEGER, REAL};
 use crate::cursor::Cursor;
 use crate::DigitBase::DECIMAL;
 
@@ -29,7 +29,7 @@ impl<'a> Lexer<'a> {
             cursor: Cursor::new(input),
         }
     }
-    fn process_number(&mut self, first: char) -> LexerResult<Token, usize, &'static str> {
+    fn process_number(&mut self, first: char, neg: bool) -> LexerResult<Token, usize, &'static str> {
         // select number base
         let mut base = DECIMAL;
 
@@ -53,9 +53,14 @@ impl<'a> Lexer<'a> {
             }
         }
 
-
         // process number
-        let mut result_number = String::from(first);
+        let mut result_number = String::new();
+
+        if neg {
+            result_number.push('-');
+        }
+
+        result_number.push(first);
 
         loop {
             match self.cursor.first() {
@@ -103,6 +108,31 @@ impl<'a> Lexer<'a> {
             self.cursor.line()
         ))
     }
+
+    fn process_id(&mut self, first: char) -> LexerResult<Token, usize, &'static str> {
+        let mut result = String::from(first);
+
+        loop {
+            match self.cursor.first() {
+                c if c.is_ascii_alphanumeric() => { result.push(self.cursor.bump().unwrap()) },
+                _ => break
+            };
+        }
+
+        if let Some(token) = RESERVED_KEYWORDS.get(result.as_str()) {
+            return Ok((
+                self.cursor.column(),
+                *token,
+                self.cursor.line(),
+            ));
+        }
+
+        Ok((
+            self.cursor.column(),
+            IDENTIFIER(result.leak()),
+            self.cursor.line()
+        ))
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -116,19 +146,31 @@ impl<'a> Iterator for Lexer<'a> {
             return self.next()
         }
 
-        if let Some(token) = RESERVED_SYMBOLS.get(&first) {
-            return Some(
-                Ok((
-                    self.cursor.column(),
-                    *token,
-                    self.cursor.line(),
-                ))
-            );
-        }
+        let tok_type = match first {
+            '+' => Token::PLUS,
+            '/' => Token::SLASH,
+            '*' => Token::STAR,
+            '(' => Token::LBRACKET,
+            ')' => Token::RBRACKET,
+            '{' => Token::LRBRACKET,
+            '}' => Token::RRBRACKET,
+            ';' => Token::SEMICOLON,
+            '>' => Token::GT,
+            '<' => Token::LT,
+            '=' => Token::EQ,
 
-        match first {
-            c @ '0'..='9' => Some(self.process_number(c)),
-            _ => Some(Err("Unknown symbol"))
-        }
+            '-' => {
+                match self.cursor.first() {
+                    c @ '0'..='9' => {self.cursor.bump(); return Some(self.process_number(c, true))},
+                    _ => Token::MINUS,
+                }
+            }
+
+            c if c.is_ascii_alphabetic() => return Some(self.process_id(c)),
+            c @ '0'..='9' => return Some(self.process_number(c, false)),
+            _ => return Some(Err("Unknown symbol"))
+        };
+
+        Some(Ok((self.cursor.column(), tok_type, self.cursor.line())))
     }
 }

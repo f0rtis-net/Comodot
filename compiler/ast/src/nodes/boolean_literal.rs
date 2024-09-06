@@ -18,4 +18,8 @@ impl Node for BooleanLiteral {
     fn get_literal(&self) -> String {
         self.val.to_string()
     }
+
+    fn get_type(&self) -> String {
+        String::from("BooleanLiteral")
+    }
 }

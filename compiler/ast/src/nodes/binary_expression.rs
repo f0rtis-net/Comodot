@@ -21,4 +21,8 @@ impl Node for BinaryExpression {
     fn get_literal(&self) -> String {
         todo!()
     }
+
+    fn get_type(&self) -> String {
+        String::from("BinaryExpression")
+    }
 }
