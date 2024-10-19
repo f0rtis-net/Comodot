@@ -1,7 +1,6 @@
-use std::ops::{Add, Deref};
 use tokens::keywords::RESERVED_KEYWORDS;
 use tokens::Token;
-use tokens::Token::{IDENTIFIER, INTEGER, REAL};
+use tokens::Token::{IDENTIFIER, INTEGER, FLOAT};
 use crate::cursor::Cursor;
 use crate::DigitBase::DECIMAL;
 
@@ -18,18 +17,18 @@ enum DigitBase {
     BINARY,
 }
 
-pub struct Lexer<'a> {
-    cursor: Cursor<'a>,
+pub struct Lexer<'input> {
+    cursor: Cursor<'input>,
 }
 
-impl<'a> Lexer<'a> {
+impl<'input> Lexer<'input> {
 
-    pub fn new(input: &'a str) -> Lexer<'a> {
+    pub fn new(input: &'input str) -> Lexer<'input> {
         Self {
             cursor: Cursor::new(input),
         }
     }
-    fn process_number(&mut self, first: char, neg: bool) -> LexerResult<Token, usize, &'static str> {
+    fn process_number(&mut self, first: char, neg: bool) -> LexerResult<Token<'input>, usize, &'static str> {
         // select number base
         let mut base = DECIMAL;
 
@@ -64,6 +63,13 @@ impl<'a> Lexer<'a> {
 
         loop {
             match self.cursor.first() {
+                '.' => {
+                    if real_flag {
+                        return Err("Invalid number format");
+                    }
+                    real_flag = true;
+                    result_number.push(self.cursor.bump().unwrap())
+                }
                 '_' => { self.cursor.bump(); },
                 '0'..='9' => result_number.push(self.cursor.bump().unwrap()),
                 'a'..='f' | 'A'..='F' => {
@@ -84,7 +90,7 @@ impl<'a> Lexer<'a> {
 
             return Ok((
                 self.cursor.column(),
-                REAL(result_number.parse::<f64>().unwrap()),
+                FLOAT(result_number.parse::<f64>().unwrap()),
                 self.cursor.line()
             ));
         }
@@ -109,7 +115,7 @@ impl<'a> Lexer<'a> {
         ))
     }
 
-    fn process_id(&mut self, first: char) -> LexerResult<Token, usize, &'static str> {
+    fn process_id(&mut self, first: char) -> LexerResult<Token<'input>, usize, &'static str> {
         let mut result = String::from(first);
 
         loop {
@@ -126,17 +132,36 @@ impl<'a> Lexer<'a> {
                 self.cursor.line(),
             ));
         }
-
+        
         Ok((
             self.cursor.column(),
             IDENTIFIER(result.leak()),
             self.cursor.line()
         ))
     }
+    
+    fn process_string_literal(&mut self) -> LexerResult<Token<'input>, usize, &'static str> {
+        let mut result = String::from(self.cursor.bump().unwrap());
+ 
+        loop {
+            match self.cursor.first() {
+                '"'=> break,
+                _ => { result.push(self.cursor.bump().unwrap()) }
+            };
+        }
+        
+        self.cursor.bump();
+        
+        Ok((
+            self.cursor.column(),
+            Token::STR(result.leak()),
+            self.cursor.line()
+        ))
+    }
 }
 
-impl<'a> Iterator for Lexer<'a> {
-    type Item = LexerResult<Token, usize, &'static str>;
+impl<'input> Iterator for Lexer<'input> {
+    type Item = LexerResult<Token<'input>, usize, &'static str>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let first = self.cursor.bump()?;
@@ -145,7 +170,18 @@ impl<'a> Iterator for Lexer<'a> {
             self.cursor.skip_until( |ch| ch.is_whitespace() );
             return self.next()
         }
-
+        
+        if first == '/' {
+            match self.cursor.peek() {
+                '/' => {
+                    self.cursor.skip_until(|ch| *ch != '\n');
+                    return self.next()
+                },
+                
+                _ => ()
+            }
+        }
+        
         let tok_type = match first {
             '+' => Token::PLUS,
             '/' => Token::SLASH,
@@ -157,8 +193,30 @@ impl<'a> Iterator for Lexer<'a> {
             ';' => Token::SEMICOLON,
             '>' => Token::GT,
             '<' => Token::LT,
-            '=' => Token::EQ,
-
+            '"' => {
+                return Some(self.process_string_literal());
+            }
+            '=' =>  {
+                match self.cursor.peek() {
+                    '=' => {self.cursor.bump(); Token::EQ}
+                    _ => Token::ASSIGN
+                }
+            }
+            ',' => Token::COMMA,
+            ':' => Token::COLON,
+            '!' => Token::EXCLAMATION,
+            '|' => {
+                match self.cursor.peek() {
+                    '|' => {self.cursor.bump(); Token::OR},
+                    _ => panic!()
+                }
+            },
+            '&' => {
+                match self.cursor.peek() {
+                    '&' => {self.cursor.bump(); Token::AND},
+                    c => panic!("{}", c)
+                }
+            },
             '-' => {
                 match self.cursor.first() {
                     c @ '0'..='9' => {self.cursor.bump(); return Some(self.process_number(c, true))},

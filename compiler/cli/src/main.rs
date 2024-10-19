@@ -1,74 +1,80 @@
-use itt::symbol_table::{GlobalSymbolTable, SymbolTableTypes};
-use itt::{IttBlock, IttByFileParametrizedTree, IttExpressions, IttFunction, IttOperators, IttTreeRootNodes, IttTypes, IttVisible};
-use itt_semantic_analyzer::analyze;
-use llvm_codegen::test_generation;
+use clap::Arg;
+use codegen::test_gen;
+use itt::{IttTreeBuilder, IttType, IttVisibility};
+use itt_resolver::IttTreeTypeResolver;
+use itt_symbol_misc::{func_table::{FunctionSymbolTable, TableFunction}, function_table_builder};
+use itt_validator::IttTreeValidator;
+use parser::Parser;
+use std::cell::RefCell;
 
 fn main() {
-   /*let result = parser();
+    let app = clap::Command::new("comodot_cli")
+        .version("v0.0.1")
+        .about("comodot language compiler")
+        .arg(
+            Arg::new("project")
+                .required(false)
+        )
+        .arg(
+            Arg::new("name")
+                .short('n')
+                .required(false)
+        )
+        .get_matches();
+    
+    /*if !app.args_present() {
+        println!("Invalid usage. type --help to get command list");
+    }*/
 
-   print_ast(&result);
+    let input = r#"
+        //test comment 
+        
+        func test(n: Int) > Int {
+            if n == 40 {
+                Int hui = 10;
+                
+                ret hui - 6.0;
+            } else if n == 20 {
+                ret 2;
+            } else {
+                if n == 0 {
+                    ret 1;
+                } else {
+                     ret 0;
+                };
+            };
+        }
+        
+        pub func main() > Int {      
+            printf("loh");
+            ret test(0);
+        }
+    "#;
 
-   test_generation(&result).unwrap();*/
-   
-   let return_expr = IttExpressions::Return(
-       Box::new(IttExpressions::Binary(
-           Box::new(IttExpressions::Int(-1)),
-           Box::new(IttExpressions::Int(2)),
-           IttOperators::MUL,
-           IttTypes::INT
-       )), 
-      IttTypes::INT
-   );
-
-   let block = IttBlock {
-      expressions: vec![return_expr],
-      block_type: IttTypes::INT
-   };
-
-   let func = IttFunction {
-      name: "test1".to_string(),
-      arguments: vec![],
-      return_type: IttTypes::INT,
-      visibility: IttVisible::GLOBAL,
-      body: block,
-   };
-
-   let return_expr1 = IttExpressions::Return(
-       Box::new(IttExpressions::Call(
-          Box::new(IttExpressions::Id("test1".to_string())),
-          vec![],
-       )),
-      IttTypes::INT
-   );
-
-   let block1 = IttBlock {
-      expressions: vec![return_expr1],
-      block_type: IttTypes::INT
-   };
-
-   let func1 = IttFunction {
-      name: "main".to_string(),
-      arguments: vec![],
-      return_type: IttTypes::INT,
-      visibility: IttVisible::GLOBAL,
-      body: block1,
-   };
-
-   let file = IttByFileParametrizedTree {
-      expressions: vec![IttTreeRootNodes::Func(func1.clone()), IttTreeRootNodes::Func(func.clone())],
-      file_name: "lol".to_string(),
-      file_hash: "a7wda7d8aa".to_string(),
-   };
-   
-   let mut global_table = GlobalSymbolTable::new();
-   
-   global_table.define_module("lol".to_string());
-   
-   global_table.get_module_table("lol").add_to_current_scope("test1".to_string(), SymbolTableTypes::Function(func));
-   
-   global_table.get_module_table("lol").add_to_current_scope("main".to_string(), SymbolTableTypes::Function(func1));
-
-   analyze(&file);
-
-   test_generation(&file, &mut global_table).unwrap();
+    let parse_result = Parser::generate_parsed_unit_from_input("test_unit", input);
+    
+    let translator = IttTreeBuilder { name: "test" };
+    
+    let mut unit = translator.translate(&parse_result);
+    
+    let functions_table = RefCell::new(FunctionSymbolTable::new());
+    
+    functions_table.borrow_mut().define(TableFunction {
+        name: "printf",
+        args: vec![("arg0", IttType::String)],
+        return_type: IttType::Int,
+        visibility: IttVisibility::GLOBAL
+    }).unwrap();
+    
+    function_table_builder(&unit, &functions_table);
+    
+    let mut types_resolver = IttTreeTypeResolver::new(&functions_table);
+    
+    types_resolver.process_tree(&mut unit);
+    
+    let validator = IttTreeValidator::new(&functions_table, &unit);
+    
+    validator.validate_tree();
+    
+    test_gen(&unit, &functions_table.borrow());
 }

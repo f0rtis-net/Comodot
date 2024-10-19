@@ -1,5 +1,5 @@
 [package]
-name = "itt_semantic_analyzer"
+name = "itt_symbol_misc"
 version = "0.1.0"
 edition = "2021"
 

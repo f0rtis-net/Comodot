@@ -1,22 +1,14 @@
+use ast::ParsedUnit;
 use lalrpop_util::lalrpop_mod;
-use ast::misc::file::ParsedFile;
 use lexer::Lexer;
-
 lalrpop_mod!(parser);
 
-pub fn parser() -> ParsedFile {
-    let input = r#"
-            func test() > Int {
-                ret 2 + 2;
-            }
+pub struct Parser;
 
-            pub func main() > Int {
-                ret (-3 + 3) + (4 + 3);
-            }
-        "#;
-
-    let lexer = Lexer::new(&input);
-
-    parser::FileParser::new().parse(&input, lexer).unwrap()
+impl Parser {
+    pub fn generate_parsed_unit_from_input<'input>(unit_name: &'input str, content: &'input str) -> ParsedUnit<'input> {
+        let lexer = Lexer::new(&content.clone());
+        
+        parser::UnitParser::new().parse(&content, lexer).unwrap()
+    }
 }
-

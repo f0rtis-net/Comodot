@@ -1,10 +1,16 @@
 pub mod keywords;
 
 #[derive(Clone, Debug, PartialEq, Copy)]
-pub enum Token {
-    IDENTIFIER(&'static str),
+pub enum Token<'input> {
+    IDENTIFIER(&'input str),
     INTEGER(i64),
-    REAL(f64),
+    FLOAT(f64),
+    BOOL(bool),
+    STR(&'input str),
+    AND,
+    OR,
+    IF,
+    ELSE,
     PLUS,
     MINUS,
     SLASH,
@@ -15,16 +21,16 @@ pub enum Token {
     RRBRACKET,
     SEMICOLON,
     FUNCTION,
+    ASSIGN,
     GT, LT, EQ,
-    IntType,
-    VoidType,
-    CharType,
-    RealType,
-    BooleanType,
-    UnknownType,
     CONST,
     PUBLIC,
     PRIVATE,
-    RETURN
+    RETURN,
+    COMMA,
+    COLON,
+    IMPORT,
+    URESOLVED,
+    EXCLAMATION
 }
 

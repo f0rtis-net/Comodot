@@ -1,0 +1,8 @@
+[package]
+name = "itt_resolver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+itt = {path = "../itt"}
+itt_symbol_misc = {path = "../itt_symbol_misc"}

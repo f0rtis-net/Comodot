@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-llvm_codegen = {path = "../llvm_codegen"}
-beautiful_ast_printer = {path = "../beautiful_ast_printer"}
 ast = {path = "../ast"}
 tokens = {path = "../tokens"}
 lexer = {path = "../lexer"}
 parser = {path = "../parser"}
-itt = {path = "../itt"}
-itt_semantic_analyzer = {path = "../itt_semantic_analyzer"}
+itt = {path="../itt"}
+itt_symbol_misc = {path = "../itt_symbol_misc"}
+itt_resolver = {path = "../itt_resolver"}
+itt_validator = {path = "../itt_validator"}
+codegen = {path = "../codegen"}
+clap = "*"

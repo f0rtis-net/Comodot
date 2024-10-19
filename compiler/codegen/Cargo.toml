@@ -1,8 +1,9 @@
 [package]
-name = "llvm_codegen"
+name = "codegen"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 inkwell = { version = "0.5.0", features = ["llvm18-0"] }
 itt = {path = "../itt"}
+itt_symbol_misc = {path = "../itt_symbol_misc"}

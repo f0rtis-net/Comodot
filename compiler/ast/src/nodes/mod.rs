@@ -1,7 +1,0 @@
-pub mod integer_literal;
-pub mod boolean_literal;
-pub mod function_literal;
-pub mod block_statement;
-pub mod binary_expression;
-pub mod real_literal;
-pub mod return_expression;

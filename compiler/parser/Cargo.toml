@@ -11,4 +11,3 @@ lalrpop-util = "0.20.2"
 ast = {path = "../ast"}
 tokens = {path = "../tokens"}
 lexer = {path = "../lexer"}
-pretty_logger = {path = "../pretty_logger"}
