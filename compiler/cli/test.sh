@@ -1,5 +1,6 @@
 #!/bin/bash
 
 cargo run
-clang -o test gen.o
+clang -emit-llvm -c -o buildins.bc builtins.c
+clang -o test buildins.bc gen.o
 ./test

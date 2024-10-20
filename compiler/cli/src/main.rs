@@ -25,44 +25,78 @@ fn main() {
     /*if !app.args_present() {
         println!("Invalid usage. type --help to get command list");
     }*/
+    
+    /*
+    //test comment 
 
+    pub fn main() -> Int {      
+        println("Hello! This is first program!!!");
+        print("Enter the some string: ");
+        print(readLine());
+        ret 0;
+    }
+    */
+    
     let input = r#"
         //test comment 
         
-        func test(n: Int) > Int {
-            if n == 40 {
-                Int hui = 10;
-                
-                ret hui - 6.0;
-            } else if n == 20 {
-                ret 2;
+        fn testFunction(n: Int) -> Int {
+            if ((n + 1) / 10) == 0 {
+                ret 1;
             } else {
-                if n == 0 {
-                    ret 1;
-                } else {
-                     ret 0;
-                };
-            };
+                ret 0;
+            }
         }
         
-        pub func main() > Int {      
-            printf("loh");
-            ret test(0);
+        pub fn main() -> Int {      
+            print("Input guess number: ");
+            
+            Int input = readInt();
+            
+            ret testFunction(input);
         }
     "#;
 
     let parse_result = Parser::generate_parsed_unit_from_input("test_unit", input);
     
-    let translator = IttTreeBuilder { name: "test" };
+    let translator = IttTreeBuilder::new();
     
     let mut unit = translator.translate(&parse_result);
     
     let functions_table = RefCell::new(FunctionSymbolTable::new());
     
     functions_table.borrow_mut().define(TableFunction {
-        name: "printf",
+        name: "print",
         args: vec![("arg0", IttType::String)],
         return_type: IttType::Int,
+        visibility: IttVisibility::GLOBAL
+    }).unwrap();
+    
+    functions_table.borrow_mut().define(TableFunction {
+        name: "println",
+        args: vec![("arg0", IttType::String)],
+        return_type: IttType::Int,
+        visibility: IttVisibility::GLOBAL
+    }).unwrap();
+    
+    functions_table.borrow_mut().define(TableFunction {
+        name: "readInt",
+        args: vec![],
+        return_type: IttType::Int,
+        visibility: IttVisibility::GLOBAL
+    }).unwrap();
+    
+    functions_table.borrow_mut().define(TableFunction {
+        name: "readFloat",
+        args: vec![],
+        return_type: IttType::Float,
+        visibility: IttVisibility::GLOBAL
+    }).unwrap();
+    
+    functions_table.borrow_mut().define(TableFunction {
+        name: "readLine",
+        args: vec![],
+        return_type: IttType::String,
         visibility: IttVisibility::GLOBAL
     }).unwrap();
     
