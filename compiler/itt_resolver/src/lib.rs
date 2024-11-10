@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use itt::{IttDefinitions, IttExprs, IttFunction, IttType, TypedNode, TypedUnit};
+use itt::{IttBinaryOperations, IttDefinitions, IttExprs, IttFunction, IttType, TypedNode, TypedUnit};
 use itt_symbol_misc::{func_table::FunctionSymbolTable, local_env::LocalEnv};
 
 #[derive(Clone, Debug)]
@@ -22,11 +22,23 @@ impl<'input> IttTreeTypeResolver<'input> {
         }
     }
     
-    fn process_in_fn_expressions(&mut self, node: &mut TypedNode<'input>) {
+    fn is_boolean_actions(&mut self, op: IttBinaryOperations) -> bool {
+        matches!(
+            op, 
+            
+            IttBinaryOperations::AND
+            | IttBinaryOperations::OR
+            | IttBinaryOperations::GT
+            | IttBinaryOperations::LT
+            | IttBinaryOperations::EQ
+        )
+    }
+    
+    fn process_in_fn_expressions(&mut self, unit_name: &str, node: &mut TypedNode<'input>) {
         match node.node.as_mut() {
             IttExprs::Block(block) => {
                 self.local_context.push_scope();
-                block.iter_mut().for_each(|stmt| self.process_in_fn_expressions(stmt));
+                block.iter_mut().for_each(|stmt| self.process_in_fn_expressions(unit_name, stmt));
                 self.local_context.pop_scope();
                 
                 node._type = block.last().unwrap()._type;
@@ -40,11 +52,15 @@ impl<'input> IttTreeTypeResolver<'input> {
                     panic!("Symbol not found in context");
                 }
             }
-    
-            IttExprs::Call(calle) => {
+            
+            IttExprs::Call(calle) => {                
+                calle.args.iter_mut().for_each(|arg| {
+                    self.process_in_fn_expressions(unit_name, arg);
+                });
+                
                 let arg_types = calle.args.iter().map(|arg| arg._type).collect();
                 let mt = self.function_table.borrow();
-                let fn_from_table = mt.lookup(calle.name, &arg_types);
+                let fn_from_table = mt.lookup(unit_name, calle.name, &arg_types);
     
                 if let Some(fn_info) = fn_from_table {
                     node._type = fn_info.return_type;
@@ -54,32 +70,38 @@ impl<'input> IttTreeTypeResolver<'input> {
             }
             
             IttExprs::IfExpr(expr) => {
-                self.process_in_fn_expressions(&mut expr.if_block);
-                
-                expr.logic_condition._type = IttType::Int;
+                self.process_in_fn_expressions(unit_name, &mut expr.logic_condition);
+                self.process_in_fn_expressions(unit_name ,&mut expr.if_block);
                 
                 if expr.else_block.is_some() {
-                    self.process_in_fn_expressions(expr.else_block.as_mut().unwrap());
+                    self.process_in_fn_expressions(unit_name ,expr.else_block.as_mut().unwrap());
                 }
                 
                 node._type = expr.if_block._type;
             }
             
             IttExprs::Binary(binary) => {
-                self.process_in_fn_expressions(&mut binary.lhs);
-                self.process_in_fn_expressions(&mut binary.rhs);
+                self.process_in_fn_expressions(unit_name, &mut binary.lhs);
+                self.process_in_fn_expressions(unit_name, &mut binary.rhs);
                 
-                node._type = binary.lhs._type;
+                if self.is_boolean_actions(binary.operator) {
+                    node._type = IttType::Bool
+                } else {
+                    node._type = binary.lhs._type;
+                }
             }
             
             IttExprs::Return(ret) => {
                 if ret.is_some() {
-                    self.process_in_fn_expressions(ret.as_mut().unwrap());
+                    self.process_in_fn_expressions(unit_name, ret.as_mut().unwrap());
                     node._type = ret.as_ref().unwrap()._type;
                 }
             }
             
             IttExprs::VarDef(var) => {
+                self.process_in_fn_expressions(unit_name, &mut var.content);
+                
+                node._type = var._type;
                 
                 self.local_context
                     .define(
@@ -96,7 +118,7 @@ impl<'input> IttTreeTypeResolver<'input> {
         }
     }
     
-    fn process_function(&mut self, func: &mut IttFunction<'input>) {
+    fn process_function(&mut self, unit_name: &str, func: &mut IttFunction<'input>) {
         match func.body.node.as_mut() {
             IttExprs::Block(block) => {
                 self.local_context.push_scope();
@@ -113,7 +135,7 @@ impl<'input> IttTreeTypeResolver<'input> {
                         .unwrap();
                 });
     
-                block.iter_mut().for_each(|stmt| self.process_in_fn_expressions(stmt));
+                block.iter_mut().for_each(|stmt| self.process_in_fn_expressions(unit_name, stmt));
                 
                 func.body._type = block.last().unwrap()._type;
                 
@@ -127,7 +149,7 @@ impl<'input> IttTreeTypeResolver<'input> {
     pub fn process_tree(&mut self, tree: &mut TypedUnit<'input>)  {
         tree.unit_content.iter_mut().for_each(|expr| {
             match expr {
-                IttDefinitions::Function(func) => self.process_function(func),
+                IttDefinitions::Function(func) => self.process_function(&tree.unit_name, func),
                 _ => ()
             }
         });

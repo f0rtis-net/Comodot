@@ -1,6 +1,11 @@
 #!/bin/bash
 
 cargo run
-clang -emit-llvm -c -o buildins.bc builtins.c
-clang -o test buildins.bc gen.o
+cd ./../internal/buildins
+make all
+cd ./../runtime
+make all
+cd ./../../cli
+clang -o test buildins.bc runtime.bc test_unit.o
 ./test
+echo $?

@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-itt = {path = "../itt"}
+mir = {path = "../mir"}

@@ -16,6 +16,7 @@ pub enum Token<'input> {
     SLASH,
     STAR,
     LBRACKET,
+    EXTERN,
     RBRACKET,
     LRBRACKET,
     RRBRACKET,

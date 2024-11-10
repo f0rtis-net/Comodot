@@ -7,8 +7,12 @@ pub struct Parser;
 
 impl Parser {
     pub fn generate_parsed_unit_from_input<'input>(unit_name: &'input str, content: &'input str) -> ParsedUnit<'input> {
-        let lexer = Lexer::new(&content.clone());
+        let lexer = Lexer::new(content);
         
-        parser::UnitParser::new().parse(&content, lexer).unwrap()
+        let mut result: ParsedUnit<'input> = parser::UnitParser::new().parse(content, lexer).unwrap();
+        
+        result.unit_name = unit_name;
+        
+        result
     }
 }

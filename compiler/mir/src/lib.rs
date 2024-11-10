@@ -42,7 +42,7 @@ pub struct TypedUnit<'input> {
 #[derive(Debug, Clone)]
 pub enum IttDefinitions<'input> {
     Function(IttFunction<'input>),
-    Import(IttImportDirective<'input>)
+    Extern(IttExternFnDeclaration<'input>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +50,13 @@ pub struct IttImportDirective<'input> {
     pub import_name: &'input str,
     pub import_hash: &'input str,
     pub target_found: &'input str
+}
+
+#[derive(Debug, Clone)]
+pub struct IttExternFnDeclaration<'input> {
+    pub name: &'input str,
+    pub args: Vec<(&'input str, IttType)>,
+    pub return_type: IttType,
 }
 
 #[derive(Debug, Clone)]
@@ -113,10 +120,16 @@ pub struct TypedNode<'input> {
 }
 
 pub struct IttTreeBuilder<'input> {
-    pub name: &'input str
+    name: &'input str
 }
 
 impl<'input> IttTreeBuilder<'input> {    
+    pub fn new() -> Self {
+        Self {
+            name: "test"
+        }
+    }
+    
     fn translate_to_itt_type(&self, ast_def: &Token<'input>) -> IttType {
         match ast_def {
             Token::IDENTIFIER("Void") => IttType::Void,
@@ -252,8 +265,6 @@ impl<'input> IttTreeBuilder<'input> {
                     node: Box::new(IttExprs::Block(translated_block))
                 }
             }
-            
-            _ => panic!("invalid ast node")
         }
     }
     
@@ -266,6 +277,20 @@ impl<'input> IttTreeBuilder<'input> {
         
         ast.unit_content.iter().for_each(|ast_exprs| {
             match ast_exprs {
+                AstDefinitions::Extern(ext_fn) => {
+                    let translated_args = ext_fn.args.iter().map(|arg| {
+                        (arg.0, self.translate_to_itt_type(&arg.1))
+                    }).collect();
+                    
+                    let translated_ret_type = self.translate_to_itt_type(&ext_fn.return_type);
+                    
+                    result.unit_content.push(IttDefinitions::Extern(IttExternFnDeclaration { 
+                        name: ext_fn.name, 
+                        args: translated_args, 
+                        return_type: translated_ret_type 
+                    }));
+                }
+                
                 AstDefinitions::Function(function) => {
                     let translated_args = function.args.iter().map(|arg| {
                         (arg.0, self.translate_to_itt_type(&arg.1))
@@ -286,13 +311,7 @@ impl<'input> IttTreeBuilder<'input> {
                     }));
                 }
                 
-                AstDefinitions::Import(import) => {
-                    result.unit_content.push(IttDefinitions::Import(IttImportDirective { 
-                        import_name: import.import_name, 
-                        import_hash: import.import_hash, 
-                        target_found: import.target_found 
-                    }));
-                }
+                _ => panic!()
             }
         });
         

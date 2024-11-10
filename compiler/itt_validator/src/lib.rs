@@ -1,4 +1,4 @@
-use itt::{IttDefinitions, IttExprs, IttType, TypedNode, TypedUnit};
+use itt::{IttDefinitions, IttExprs, TypedNode, TypedUnit};
 use itt_symbol_misc::func_table::FunctionSymbolTable;
 use std::cell::RefCell;
 
@@ -41,6 +41,12 @@ impl<'input> IttTreeValidator<'input> {
                 }
             }
             
+            IttExprs::Return(expr) => {
+                if expr.is_some() {
+                    self.validate_node(expr.as_ref().unwrap());
+                }
+            }
+            
             _ => ()
         }
     }
@@ -53,12 +59,10 @@ impl<'input> IttTreeValidator<'input> {
                         IttExprs::Block(block) => {
                             block.iter().for_each(|expr| self.validate_node(expr));
                             
-                            if fun.return_type != IttType::Void {
-                                let ret_type = block.last().unwrap()._type;
-                                if ret_type != fun.return_type {
-                                    panic!("Return type of function signature not match to return type of function main block");
-                                }
-                            }      
+                            let ret_type = block.last().unwrap()._type;
+                            if ret_type != fun.return_type { 
+                                panic!("Return type of function signature not match to return type of function main block");
+                            } 
                         }
                         _ => ()
                     }

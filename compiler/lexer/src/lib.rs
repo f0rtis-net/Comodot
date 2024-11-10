@@ -120,7 +120,7 @@ impl<'input> Lexer<'input> {
 
         loop {
             match self.cursor.first() {
-                c if c.is_ascii_alphanumeric() => { result.push(self.cursor.bump().unwrap()) },
+                c if unicode_xid::UnicodeXID::is_xid_continue(c) => { result.push(self.cursor.bump().unwrap()) },
                 _ => break
             };
         }
@@ -158,6 +158,26 @@ impl<'input> Lexer<'input> {
             self.cursor.line()
         ))
     }
+    
+    fn is_whitespace(&self, c: char) -> bool {
+        matches!(
+            c,
+                
+            '\u{0009}'   // \t
+            | '\u{000A}' // \n
+            | '\u{000B}' // vertical tab
+            | '\u{000C}' // form feed
+            | '\u{000D}' // \r
+            | '\u{0020}' // space
+        
+            // Bidi markers
+            | '\u{200E}' // LEFT-TO-RIGHT MARK
+            | '\u{200F}' // RIGHT-TO-LEFT MARK
+        
+            | '\u{2028}' // LINE SEPARATOR
+            | '\u{2029}' // PARAGRAPH SEPARATOR
+        )
+    }
 }
 
 impl<'input> Iterator for Lexer<'input> {
@@ -166,7 +186,7 @@ impl<'input> Iterator for Lexer<'input> {
     fn next(&mut self) -> Option<Self::Item> {
         let first = self.cursor.bump()?;
 
-        if first.is_whitespace() {
+        if self.is_whitespace(first) {
             self.cursor.skip_until( |ch| ch.is_whitespace() );
             return self.next()
         }
@@ -224,7 +244,7 @@ impl<'input> Iterator for Lexer<'input> {
                 }
             }
 
-            c if c.is_ascii_alphabetic() => return Some(self.process_id(c)),
+            c if c == '_' || unicode_xid::UnicodeXID::is_xid_start(c) => return Some(self.process_id(c)),
             c @ '0'..='9' => return Some(self.process_number(c, false)),
             _ => return Some(Err("Unknown symbol"))
         };

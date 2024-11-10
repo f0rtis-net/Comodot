@@ -10,6 +10,7 @@ pub struct ParsedUnit<'input> {
 #[derive(Debug)]
 pub enum AstDefinitions<'input> {
     Function(AstFunction<'input>),
+    Extern(ExternFnDeclaration<'input>),
     Import(ImportDirective<'input>)
 }
 
@@ -25,7 +26,29 @@ pub enum AstExpr<'input> {
     Call(CallExpression<'input>), 
     Return(Option<Box<AstExpr<'input>>>), 
     VarDef(VariableDefinition<'input>),
-    IfExpr(IfExpression<'input>)
+    IfExpr(IfExpression<'input>),
+    //ArrayAccess(ArrayAccess<'input>),
+    //ArrayDefinition()
+}
+
+#[derive(Debug)]
+pub struct ExternFnDeclaration<'input> {
+    pub name: &'input str,
+    pub args: Vec<(&'input str, Token<'input>)>,
+    pub return_type: Token<'input>,
+}
+
+#[derive(Debug)]
+pub struct ArrayDefinition<'input> {
+    pub len: usize,
+    pub name: &'input str,
+    pub elements: Vec<Token<'input>>
+}
+
+#[derive(Debug)]
+pub struct ArrayAccess<'input> {
+    pub alias: &'input str,
+    pub index: i64
 }
 
 #[derive(Debug)]

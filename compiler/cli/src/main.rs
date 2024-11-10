@@ -1,11 +1,11 @@
 use clap::Arg;
 use codegen::test_gen;
-use itt::{IttTreeBuilder, IttType, IttVisibility};
+use mir::IttTreeBuilder;
 use itt_resolver::IttTreeTypeResolver;
-use itt_symbol_misc::{func_table::{FunctionSymbolTable, TableFunction}, function_table_builder};
+use itt_symbol_misc::{func_table::FunctionSymbolTable, function_table_builder};
 use itt_validator::IttTreeValidator;
 use parser::Parser;
-use std::cell::RefCell;
+use std::{cell::RefCell, fs::File, io::Read};
 
 fn main() {
     let app = clap::Command::new("comodot_cli")
@@ -26,79 +26,19 @@ fn main() {
         println!("Invalid usage. type --help to get command list");
     }*/
     
-    /*
-    //test comment 
-
-    pub fn main() -> Int {      
-        println("Hello! This is first program!!!");
-        print("Enter the some string: ");
-        print(readLine());
-        ret 0;
-    }
-    */
+    let mut file = File::open("main.cd").unwrap();
     
-    let input = r#"
-        //test comment 
-        
-        fn testFunction(n: Int) -> Int {
-            if ((n + 1) / 10) == 0 {
-                ret 1;
-            } else {
-                ret 0;
-            }
-        }
-        
-        pub fn main() -> Int {      
-            print("Input guess number: ");
-            
-            Int input = readInt();
-            
-            ret testFunction(input);
-        }
-    "#;
+    let mut content = String::new();
+    
+    file.read_to_string(&mut content).unwrap();
 
-    let parse_result = Parser::generate_parsed_unit_from_input("test_unit", input);
+    let parse_result = Parser::generate_parsed_unit_from_input("test_unit", content.as_str());
     
     let translator = IttTreeBuilder::new();
     
     let mut unit = translator.translate(&parse_result);
     
     let functions_table = RefCell::new(FunctionSymbolTable::new());
-    
-    functions_table.borrow_mut().define(TableFunction {
-        name: "print",
-        args: vec![("arg0", IttType::String)],
-        return_type: IttType::Int,
-        visibility: IttVisibility::GLOBAL
-    }).unwrap();
-    
-    functions_table.borrow_mut().define(TableFunction {
-        name: "println",
-        args: vec![("arg0", IttType::String)],
-        return_type: IttType::Int,
-        visibility: IttVisibility::GLOBAL
-    }).unwrap();
-    
-    functions_table.borrow_mut().define(TableFunction {
-        name: "readInt",
-        args: vec![],
-        return_type: IttType::Int,
-        visibility: IttVisibility::GLOBAL
-    }).unwrap();
-    
-    functions_table.borrow_mut().define(TableFunction {
-        name: "readFloat",
-        args: vec![],
-        return_type: IttType::Float,
-        visibility: IttVisibility::GLOBAL
-    }).unwrap();
-    
-    functions_table.borrow_mut().define(TableFunction {
-        name: "readLine",
-        args: vec![],
-        return_type: IttType::String,
-        visibility: IttVisibility::GLOBAL
-    }).unwrap();
     
     function_table_builder(&unit, &functions_table);
     

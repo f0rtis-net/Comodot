@@ -3,249 +3,6 @@ use tokens::Token;
 
 grammar<'input>(input: &'input str);
 
-pub Unit: ParsedUnit<'input> = {
-    <defs: (Definitions)*> => {
-        ParsedUnit {
-            unit_hash: "",
-            unit_name: "",
-            unit_content: defs
-        }
-    }
-};
-
-Definitions: AstDefinitions<'input> = {
-    IMPORT <find_target: (EXCLAMATION)?> <id: Id> => {
-        let where_find = match find_target {
-            Some(_) => "system",
-            None => "local"
-        };
-        
-        AstDefinitions::Import( ImportDirective {
-            import_name: id,
-            import_hash: "",
-            target_found: where_find
-        })
-    },
-    
-    <visible: (PUBLIC)?> FUNCTION <func: Function> => {
-        let mut f = func;
-        
-        f.visibility = match visible {
-            Some(_) => Token::PUBLIC,
-            None => Token::PRIVATE
-        };
-        
-        AstDefinitions::Function(f)
-    },
-};
-
-Function: AstFunction<'input> = {
-    <name: IDENTIFIER> <args: FunctionArgs> <ret_type: (GT IDENTIFIER)?> <body: Block> => {
-        let ret_t = match ret_type {
-            Some((_, _type)) => Token::IDENTIFIER(_type),
-            None => Token::IDENTIFIER("void")
-        };
-        
-        AstFunction {
-            name: String::from(name), 
-            args,
-            return_type: ret_t,
-            visibility: Token::PRIVATE,
-            body: Box::new(body)
-        }
-    },
-};
-
-Block: AstExpr<'input> = {
-    LRBRACKET RRBRACKET => AstExpr::Block(vec![]),
-    
-    LRBRACKET <expr: BasicExpressions> SEMICOLON <rest: (BasicExpressions SEMICOLON)*> RRBRACKET => {
-        let mut exprs = vec![expr];
-        for (e, _) in rest { exprs.push(e); }
-        AstExpr::Block(exprs)
-    }
-};
-
-
-BasicExpressions: AstExpr<'input> = {
-    <logical_exprs: LogicalExpressions> => logical_exprs,
-    
-    <if_expr: IfExpression> => if_expr,
-    
-    <var_type: Id> <name: Id> ASSIGN <logical_exprs: LogicalExpressions> => {
-        AstExpr::VarDef( VariableDefinition {
-            name,
-            _type: Token::IDENTIFIER(var_type),
-            constant: false,
-            is_global: false,
-            content: Box::new(logical_exprs)
-        })
-    },
-    
-    RETURN <ret_expr: (LogicalExpressions)?> => {
-        let ret_ex = match ret_expr {
-            Some(expr) => Some(Box::new(expr)),
-            None => None
-        };
-        
-        AstExpr::Return(ret_ex)
-    }
-};
-
-LogicalExpressions: AstExpr<'input> = {
-    <l: LogicalExpressions> AND <r: CompareExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::AND
-        })
-    },
-    
-    <l: LogicalExpressions> OR <r: CompareExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::OR
-        })
-    },
-    
-    <a: CompareExpressions> => a
-};
-
-CompareExpressions: AstExpr<'input> = {
-    <l: CompareExpressions> GT <r: PlusMinusExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::GT
-        })
-    },
-    
-    <l: CompareExpressions> LT <r: PlusMinusExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::LT
-        })
-    },
-    
-    <l: CompareExpressions> EQ <r: PlusMinusExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::EQ
-        })
-    },
-    
-    <a: PlusMinusExpressions> => a
-};
-
-PlusMinusExpressions: AstExpr<'input> = {
-    <l: PlusMinusExpressions> PLUS <r: DivMulExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::PLUS
-        })
-    },
-    <l: PlusMinusExpressions> MINUS <r: DivMulExpressions> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::MINUS
-        })
-    },
-    <div_mul: DivMulExpressions> => div_mul
-};
-
-DivMulExpressions: AstExpr<'input> = {
-    <l: DivMulExpressions> SLASH <r: PrimaryExprs> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::SLASH
-        })
-    },
-    <l: DivMulExpressions> STAR <r: PrimaryExprs> => {
-        AstExpr::Binary(BinaryExpression {
-            lhs: Box::new(l),
-            rhs: Box::new(r),
-            operator: Token::STAR
-        })
-    },
-    <primary: PrimaryExprs> => primary
-};
-
-PrimaryExprs: AstExpr<'input> = {
-    <b: Block> => b,
-
-    INTEGER => AstExpr::Integer(<>),
-    FLOAT => AstExpr::Float(<>),
-    BOOL => AstExpr::Bool(<>),
-    STR => AstExpr::String(<>),
-    <id: Id> => AstExpr::Identifier(<>), 
-    
-    <alias_id: Id> COLON COLON <id: Id> <args: CallArgs> => {
-        AstExpr::Call(CallExpression{alias: Some(alias_id), name: id, args})
-    },
-    
-    <id: Id> <args: CallArgs> => {
-        AstExpr::Call(CallExpression{alias: None, name: id, args})
-    },
-    
-    LBRACKET <expr: BasicExpressions> RBRACKET => expr,
-};
-
-IfExpression: AstExpr<'input> = {
-    IF <cond: LogicalExpressions> <block: Block> => AstExpr::IfExpr(IfExpression {
-        logic_condition: Box::new(cond),
-        if_block: Box::new(block),
-        else_block: None
-    }),
-    
-    IF <cond: LogicalExpressions> <then_block: Block> ELSE <else_block: Block> => AstExpr::IfExpr(IfExpression {
-        logic_condition: Box::new(cond),
-        if_block: Box::new(then_block),
-        else_block: Some(Box::new(else_block))
-    }),
-    
-    IF <cond: LogicalExpressions> <then_block: Block> ELSE <else_block: IfExpression> => AstExpr::IfExpr(IfExpression {
-        logic_condition: Box::new(cond),
-        if_block: Box::new(then_block),
-        else_block: Some(Box::new(else_block))
-    }),
-};
-
-FunctionArgs: Vec<(&'input str, Token<'input>)> = {
-    LBRACKET <arg0:(Id COLON IDENTIFIER)?> <args:(COMMA Id COLON IDENTIFIER)*> RBRACKET => {
-        let mut all_args = vec![];
-        
-        if let Some((id, _, _type)) = arg0 {
-            all_args.push((id, Token::IDENTIFIER(_type)));
-            
-            for (_, id, _, _type) in args {
-                all_args.push((id, Token::IDENTIFIER(_type)));
-            }
-            
-            return all_args;
-        }
-
-        all_args
-    }
-};
-
-CallArgs: Vec<AstExpr<'input>> = {
-    LBRACKET RBRACKET => vec![],
-    
-    LBRACKET <arg0: BasicExpressions> <args: (COMMA BasicExpressions)*> RBRACKET => {
-        let mut vec = vec![arg0];
-        for (_, arg) in args.into_iter() { vec.push(arg); }
-		vec
-    }
-};
-
-Id: &'input str = { IDENTIFIER => <> };
-
 extern {
     type Location = usize;
     
@@ -280,6 +37,280 @@ extern {
         COMMA => Token::COMMA,
         COLON => Token::COLON,
         IMPORT => Token::IMPORT,
+        EXTERN => Token::EXTERN,
         EXCLAMATION => Token::EXCLAMATION,
 	}
 }
+
+pub Unit: ParsedUnit<'input> = {
+    <defs: (Definitions)*> => {
+        ParsedUnit {
+            unit_hash: "",
+            unit_name: "",
+            unit_content: defs
+        }
+    }
+};
+
+Definitions: AstDefinitions<'input> = {
+    IMPORT <find_target: (EXCLAMATION)?> <id: Id> => {
+        let where_find = match find_target {
+            Some(_) => "system",
+            None => "local"
+        };
+        
+        AstDefinitions::Import( ImportDirective {
+            import_name: id,
+            import_hash: "",
+            target_found: where_find
+        })
+    },
+    
+    <function: FunctionDeclaration> => AstDefinitions::Function(function),
+    
+    <ext_del: ExternFunctionDeclaration> => AstDefinitions::Extern(ext_del),
+};
+
+ExternFunctionDeclaration: ExternFnDeclaration<'input> = {
+    EXTERN FUNCTION <name: IDENTIFIER> <args: FunctionDeclArgs> <ret_type: (MINUS GT IDENTIFIER)?> SEMICOLON => {
+        let ret_t = match ret_type {
+            Some((_, _, _type)) => Token::IDENTIFIER(_type),
+            None => Token::IDENTIFIER("Void")
+        };
+        
+        ExternFnDeclaration {
+            name,
+            args,
+            return_type: ret_t,
+        }
+    }
+};
+
+FunctionDeclaration: AstFunction<'input> = {
+    <visible: (PUBLIC)?> FUNCTION <name: IDENTIFIER> <args: FunctionDeclArgs> <ret_type: (MINUS GT IDENTIFIER)?> <body: Block> => {
+        let visibility_t = match visible {
+            Some(_) => Token::PUBLIC,
+            None => Token::PRIVATE
+        };
+        
+        let ret_t = match ret_type {
+            Some((_, _, _type)) => Token::IDENTIFIER(_type),
+            None => Token::IDENTIFIER("Void")
+        };
+        
+        AstFunction {
+            name: String::from(name), 
+            args,
+            return_type: ret_t,
+            visibility: visibility_t,
+            body: Box::new(body)
+        }
+    },
+}
+
+FunctionDeclArgs: Vec<(&'input str, Token<'input>)> = {
+    LBRACKET <arg0:(Id COLON IDENTIFIER)?> <args:(COMMA Id COLON IDENTIFIER)*> RBRACKET => {
+        let mut all_args = vec![];
+        
+        if let Some((id, _, _type)) = arg0 {
+            all_args.push((id, Token::IDENTIFIER(_type)));
+            
+            for (_, id, _, _type) in args {
+                all_args.push((id, Token::IDENTIFIER(_type)));
+            }
+            
+            return all_args;
+        }
+
+        all_args
+    }
+};
+
+Statement: AstExpr<'input> = {
+    <decl: VarDecl> SEMICOLON => decl,
+    <ret: Return> SEMICOLON => ret,
+    <cond: Conditional> => cond,
+    
+    <expr: ExpressionStatement> => expr
+};
+
+ExpressionStatement: AstExpr<'input> = {
+    <expr: LogicalExpressions> SEMICOLON => expr
+};
+
+Conditional: AstExpr<'input> = {
+    IF <cond: LogicalExpressions> <block: Block> => AstExpr::IfExpr(IfExpression {
+        logic_condition: Box::new(cond),
+        if_block: Box::new(block),
+        else_block: None
+    }),
+    
+    IF <cond: LogicalExpressions> <then_block: Block> ELSE <else_block: Block> => AstExpr::IfExpr(IfExpression {
+        logic_condition: Box::new(cond),
+        if_block: Box::new(then_block),
+        else_block: Some(Box::new(else_block))
+    }),
+    
+    IF <cond: LogicalExpressions> <then_block: Block> ELSE <else_block: Conditional> => AstExpr::IfExpr(IfExpression {
+        logic_condition: Box::new(cond),
+        if_block: Box::new(then_block),
+        else_block: Some(Box::new(else_block))
+    }),
+};
+
+PrimaryExprs: AstExpr<'input> = {
+    <l: Literals> => l,
+    <id: Id> => AstExpr::Identifier(<>), 
+    
+    <alias_id: Id> COLON COLON <id: Id> <args: CallArgs> => {
+        AstExpr::Call(CallExpression{alias: Some(alias_id), name: id, args})
+    },
+    
+    <id: Id> <args: CallArgs> => {
+        AstExpr::Call(CallExpression{alias: None, name: id, args})
+    },
+    
+    LBRACKET <expr: LogicalExpressions> RBRACKET => expr,
+};
+
+DivMulExpressions: AstExpr<'input> = {
+    <l: DivMulExpressions> SLASH <r: PrimaryExprs> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::SLASH
+        })
+    },
+    <l: DivMulExpressions> STAR <r: PrimaryExprs> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::STAR
+        })
+    },
+    
+    <primary: PrimaryExprs> => primary
+};
+
+PlusMinusExpressions: AstExpr<'input> = {
+    <l: PlusMinusExpressions> PLUS <r: DivMulExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::PLUS
+        })
+    },
+    <l: PlusMinusExpressions> MINUS <r: DivMulExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::MINUS
+        })
+    },
+    
+    <div_mul: DivMulExpressions> => div_mul
+};
+
+CallArgs: Vec<AstExpr<'input>> = {
+    LBRACKET RBRACKET => vec![],
+    
+    LBRACKET <arg0: LogicalExpressions> <args: (COMMA LogicalExpressions)*> RBRACKET => {
+        let mut vec = vec![arg0];
+        for (_, arg) in args.into_iter() { vec.push(arg); }
+		vec
+    }
+};
+
+CompareExpressions: AstExpr<'input> = {
+    <l: CompareExpressions> GT <r: PlusMinusExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::GT
+        })
+    },
+    
+    <l: CompareExpressions> LT <r: PlusMinusExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::LT
+        })
+    },
+    
+    <l: CompareExpressions> EQ <r: PlusMinusExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::EQ
+        })
+    },
+    
+    <a: PlusMinusExpressions> => a
+};
+
+LogicalExpressions: AstExpr<'input> = {
+    <l: LogicalExpressions> AND <r: CompareExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::AND
+        })
+    },
+    
+    <l: LogicalExpressions> OR <r: CompareExpressions> => {
+        AstExpr::Binary(BinaryExpression {
+            lhs: Box::new(l),
+            rhs: Box::new(r),
+            operator: Token::OR
+        })
+    },
+    
+    <a: CompareExpressions> => a
+};
+
+VarDecl: AstExpr<'input> = {
+    <var_type: Id> <name: Id> ASSIGN <logical_exprs: LogicalExpressions> => {
+        AstExpr::VarDef( VariableDefinition {
+            name,
+            _type: Token::IDENTIFIER(var_type),
+            constant: false,
+            is_global: false,
+            content: Box::new(logical_exprs)
+        })
+    },
+};
+
+Return: AstExpr<'input> = {
+    RETURN <ret_expr: (LogicalExpressions)?> => {
+        let ret_ex = match ret_expr {
+            Some(expr) => Some(Box::new(expr)),
+            None => None
+        };
+        
+        AstExpr::Return(ret_ex)
+    }
+};
+
+Block: AstExpr<'input> = { 
+    LRBRACKET RRBRACKET => AstExpr::Block(vec![]),
+    
+    LRBRACKET <stmt: Statement> <stmts: Statement*> RRBRACKET => {
+        let mut statements = vec![stmt];
+        
+        for stmt1 in stmts {
+            statements.push(stmt1);
+        }
+        
+        AstExpr::Block(statements)
+    }
+};
+
+Id: &'input str = { IDENTIFIER => <> };
+
+Literals: AstExpr<'input> = {
+    INTEGER => AstExpr::Integer(<>),
+    FLOAT => AstExpr::Float(<>),
+    BOOL => AstExpr::Bool(<>),
+    STR => AstExpr::String(<>)
+};

@@ -1,14 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern int print(char* arg0) {
+extern void print(char* arg0) {
     printf("%s", arg0);
-    return 0;
 }
 
-extern int println(char* arg0) {
+extern void println(char* arg0) {
     printf("%s\n", arg0);
-    return 0;
 }
 
 extern int readInt() {
@@ -72,6 +70,7 @@ extern char* readLine() {
         free(linep);
         return NULL;
     }
+    
     line = linen + (line - linep);
     linep = linen;
 
