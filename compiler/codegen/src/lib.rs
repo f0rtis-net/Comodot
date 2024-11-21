@@ -10,8 +10,7 @@ use inkwell::OptimizationLevel;
 use inkwell::{context::Context, values::FunctionValue};
 use inkwell::module::{Linkage, Module};
 use inkwell::builder::Builder;
-use itt::{IttDefinitions, IttExprs, IttFunction, IttIfExpression, IttType, TypedNode, TypedUnit};
-use itt_symbol_misc::func_table::FunctionSymbolTable;
+use itt::{IttDefinitions, IttExprs, IttFunction, IttIfExpression, IttType, IttVisibility, TypedNode, TypedUnit};
 use itt_symbol_misc::local_env::LocalEnv;
 use itt_symbol_misc::name_mangler::mangle_function_name;
 use misc::get_llvm_type;
@@ -19,14 +18,14 @@ use misc::get_llvm_type;
 mod misc;
 mod builder;
 
-pub fn test_gen(code_unit: &TypedUnit, function_table: &FunctionSymbolTable) {
+pub fn test_gen(code_unit: &TypedUnit) -> String {
     let context = Context::create();
     let builder = context.create_builder();
     let modul = context.create_module(code_unit.unit_name);
     
     let mut mod_gen = ModuleCodegen::new(modul, &builder, &context);
     
-    let generated = mod_gen.generate(function_table, code_unit);
+    let generated = mod_gen.generate(code_unit);
     
     Target::initialize_all(&Default::default());
     let triple = TargetTriple::from(TargetMachine::get_default_triple());
@@ -44,13 +43,15 @@ pub fn test_gen(code_unit: &TypedUnit, function_table: &FunctionSymbolTable) {
     
     let path = PathBuf::from(format!("{}.o", code_unit.unit_name));
     
-    generated.print_to_stderr();
+    //generated.print_to_stderr();
     
     machine
         .as_ref()
         .unwrap()
         .write_to_file(&generated, FileType::Object, path.as_path())
         .unwrap();
+    
+    return path.to_str().unwrap_or("").to_string();
 }
 
 pub struct ModuleCodegen<'input> {
@@ -72,8 +73,8 @@ impl <'input> ModuleCodegen<'input> {
         }
     }
     
-    fn generate_if_else(&mut self, function_table: &'input FunctionSymbolTable<'input>, if_expr: &'input IttIfExpression<'input>) -> BasicValueEnum<'input> {
-        let condition = self.generate_node(function_table, &if_expr.logic_condition).into_int_value();
+    fn generate_if_else(&mut self, if_expr: &'input IttIfExpression<'input>) -> BasicValueEnum<'input> {
+        let condition = self.generate_node(&if_expr.logic_condition).into_int_value();
         
         let insert_block = self.builder.get_insert_block().unwrap();
         let function = insert_block.get_parent().unwrap();
@@ -95,7 +96,7 @@ impl <'input> ModuleCodegen<'input> {
         }
         
         self.builder.position_at_end(then_block);
-        self.generate_node(function_table, &if_expr.if_block);
+        self.generate_node(&if_expr.if_block);
         then_block = self.builder.get_insert_block().unwrap();
         
         if then_block.get_terminator().is_none() {
@@ -104,7 +105,7 @@ impl <'input> ModuleCodegen<'input> {
             
         if else_block.is_some() {
             self.builder.position_at_end(else_block.unwrap());
-            self.generate_node(function_table, if_expr.else_block.as_ref().unwrap());
+            self.generate_node(if_expr.else_block.as_ref().unwrap());
             self.builder.build_unconditional_branch(done_block).unwrap();
             else_block = Some(self.builder.get_insert_block().unwrap());
             
@@ -170,10 +171,10 @@ impl <'input> ModuleCodegen<'input> {
         self.module.add_function(name, func_signature, Some(linkage))
     }
     
-    pub fn generate_node(&mut self, function_table: &'input FunctionSymbolTable<'input>, node: &'input TypedNode) -> BasicValueEnum<'input> {
+    pub fn generate_node(&mut self, node: &'input TypedNode) -> BasicValueEnum<'input> {
         match &*node.node {
             IttExprs::Integer(val) => BasicValueEnum::IntValue(
-                self.context.i64_type().const_int(unsafe {std::mem::transmute(*val) }, false)
+                self.context.i64_type().const_int(unsafe { std::mem::transmute(*val) }, false)
             ),
             
             IttExprs::Float(val) => BasicValueEnum::FloatValue(
@@ -193,7 +194,7 @@ impl <'input> ModuleCodegen<'input> {
                 string.as_basic_value_enum()
             }
             
-            IttExprs::IfExpr(if_expr) => self.generate_if_else(function_table, &if_expr),
+            IttExprs::IfExpr(if_expr) => self.generate_if_else(&if_expr),
             
             IttExprs::Identifier(id) => self.generated_env.lookup(id).unwrap(),
             
@@ -203,7 +204,7 @@ impl <'input> ModuleCodegen<'input> {
                 let mut return_expr: Option<BasicValueEnum<'input>> = None;
                 
                 block.iter().for_each(|f| {
-                    return_expr = Some(self.generate_node(function_table, f));
+                    return_expr = Some(self.generate_node(f));
                 });
                 
                 self.generated_env.pop_scope();
@@ -212,7 +213,7 @@ impl <'input> ModuleCodegen<'input> {
             }
             
             IttExprs::VarDef(vdef) => {
-                let gen_val = self.generate_node(function_table, &vdef.content);
+                let gen_val = self.generate_node(&vdef.content);
                 
                 self.generated_env.define(&vdef.name, gen_val).unwrap();
                 
@@ -220,40 +221,36 @@ impl <'input> ModuleCodegen<'input> {
             }
             
             IttExprs::Binary(expr) => {
-                let lhs = self.generate_node(function_table, &expr.lhs);
-                let rhs = self.generate_node(function_table, &expr.rhs);
+                let lhs = self.generate_node(&expr.lhs);
+                let rhs = self.generate_node(&expr.rhs);
                 build_llvm_binop(&self.builder, lhs, rhs, &expr.operator, &expr.lhs._type)
             }
             
             IttExprs::Call(call) => {
                 let arg_types: Vec<_> = call.args.iter().map(|arg| arg._type).collect();
                 
-                let module_alias = self.module.get_name().to_str().unwrap();
+                let module_alias = call.alias.unwrap_or(self.module.get_name().to_str().unwrap());
                 
-                let in_module = function_table.lookup(module_alias, call.name, &arg_types).unwrap();
-                        
-                let transformed_args = in_module.args.iter().map(|arg| arg.1).collect();
-                
-                let end_call_name = if in_module.is_extern {
+                let end_call_name = if matches!(call.visibility, IttVisibility::EXTERN) {
                     call.name.to_string()
                 } else {
-                    mangle_function_name(self.module.get_name().to_str().unwrap(), in_module.name, &arg_types).unwrap()
+                    mangle_function_name(module_alias, &call.name, &arg_types).unwrap()
                 };
                 
                 let fn_decl = self.get_function_signature(
                     &end_call_name, 
-                    &transformed_args, 
-                    in_module.is_extern, 
-                    in_module.return_type, 
+                    &arg_types, 
+                    matches!(call.visibility, IttVisibility::EXTERN | IttVisibility::PUBLIC), 
+                    node._type, 
                 );
                 
                 let gen_args: Vec<BasicMetadataValueEnum<'input>> = call.args.iter().map(|arg| {
-                    self.generate_node(function_table, arg).into()
+                    self.generate_node(arg).into()
                 }).collect();
                 
                 let val = self
                     .builder
-                    .build_call(fn_decl, &gen_args, call.name)
+                    .build_call(fn_decl, &gen_args, call.name.as_str())
                     .unwrap();
                 
                 if node._type == IttType::Void {
@@ -268,7 +265,7 @@ impl <'input> ModuleCodegen<'input> {
             
             IttExprs::Return(expr) => {
                 if let Some(expr) = expr {
-                    let value = self.generate_node(function_table, expr);
+                    let value = self.generate_node(expr);
                     self.builder.build_return(Some(&value)).unwrap();
                 } else {
                     self.builder.build_return(None).unwrap();
@@ -283,15 +280,20 @@ impl <'input> ModuleCodegen<'input> {
         BasicValueEnum::IntValue(self.context.i64_type().const_zero())
     }
     
-    fn generate_function(&mut self, function: &'input IttFunction, function_table: &'input FunctionSymbolTable<'input>) {
+    fn generate_function(&mut self, function: &'input IttFunction) {
         let transformed_args = function.args.iter().map(|arg| arg.1).collect();
-        let mangled_name = mangle_function_name(self.module.get_name().to_str().unwrap(), function.name, &transformed_args).unwrap();
         
+        let mangled_name = mangle_function_name(self.module.get_name().to_str().unwrap(), &function.name, &transformed_args).unwrap();
+        
+        let is_globally_visible = match function.visibility {
+            IttVisibility::EXTERN | IttVisibility::PUBLIC => true,
+            IttVisibility::PRIVATE => false
+        };
         
         let signature = self.get_function_signature(
             &mangled_name, 
             &transformed_args, 
-            function.name == "main", 
+            is_globally_visible, 
             function.return_type
         );
         
@@ -309,7 +311,7 @@ impl <'input> ModuleCodegen<'input> {
         
         self.builder.position_at_end(llvm_block);
         
-        self.generate_node(function_table, &function.body);
+        self.generate_node(&function.body);
         
         if llvm_block.get_terminator().is_none() {
             self.builder.build_return(None).unwrap();
@@ -318,10 +320,10 @@ impl <'input> ModuleCodegen<'input> {
         self.generated_env.pop_scope();
     }
     
-    pub fn generate(&mut self, function_table: &'input FunctionSymbolTable<'input>, unit: &'input TypedUnit<'input>) -> Module<'input> {    
+    pub fn generate(&mut self, unit: &'input TypedUnit<'input>) -> Module<'input> {    
         unit.unit_content.iter().for_each(|f| {
             match f {
-                IttDefinitions::Function(function) => self.generate_function(function, function_table), 
+                IttDefinitions::Function(function) => self.generate_function(function), 
                 _ => ()
             }
         });

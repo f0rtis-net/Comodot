@@ -13,10 +13,11 @@ pub enum IttType {
     UNRESOLVED
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IttVisibility {
-    GLOBAL,
-    FILE
+    EXTERN,
+    PUBLIC,
+    PRIVATE
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -93,8 +94,9 @@ pub struct IttVariableDefinition<'input> {
 #[derive(Debug, Clone)]
 pub struct IttCallExpression<'input> {
     pub alias: Option<&'input str>,
-    pub name: &'input str,
-    pub args: Vec<TypedNode<'input>>
+    pub name: String,
+    pub args: Vec<TypedNode<'input>>,
+    pub visibility: IttVisibility
 }
 
 #[derive(Debug, Clone)]
@@ -106,7 +108,7 @@ pub struct IttBinaryExpression<'input> {
 
 #[derive(Debug, Clone)]
 pub struct IttFunction<'input> {
-    pub name: &'input str,
+    pub name: String,
     pub args: Vec<(&'input str, IttType)>,
     pub return_type: IttType,
     pub visibility: IttVisibility,
@@ -142,10 +144,10 @@ impl<'input> IttTreeBuilder<'input> {
         }
     }
     
-    fn translate_to_itt_visibility(&self, ast_def: &Token<'input>) -> IttVisibility {
+    fn translate_visibility(&self, ast_def: &Token<'input>) -> IttVisibility {
         match ast_def {
-            Token::PRIVATE => IttVisibility::FILE,
-            Token::PUBLIC => IttVisibility::GLOBAL,
+            Token::PRIVATE => IttVisibility::PRIVATE,
+            Token::PUBLIC => IttVisibility::PUBLIC,
             _ => panic!("invalid visibility")
         }
     }
@@ -165,7 +167,7 @@ impl<'input> IttTreeBuilder<'input> {
         }
     }
     
-    pub fn translate_node(&self, node: &AstExpr<'input>) -> TypedNode<'input> {
+    fn translate_node(&self, node: &AstExpr<'input>) -> TypedNode<'input> {
         match node {
             AstExpr::Identifier(id) => TypedNode {_type: IttType::UNRESOLVED, node: Box::new(IttExprs::Identifier(id))},
             AstExpr::Integer(n) => TypedNode {_type: IttType::Int, node: Box::new(IttExprs::Integer(*n))},
@@ -230,8 +232,9 @@ impl<'input> IttTreeBuilder<'input> {
                 
                 let transformed_call = IttExprs::Call(IttCallExpression{
                     alias: call.alias,
-                    name: call.name,
-                    args: transformed_args
+                    name: call.name.to_string(),
+                    args: transformed_args,
+                    visibility: IttVisibility::PUBLIC
                 });
                 
                 TypedNode {
@@ -268,7 +271,7 @@ impl<'input> IttTreeBuilder<'input> {
         }
     }
     
-    pub fn translate(&self, ast: &'input ParsedUnit<'input>) -> TypedUnit<'input> {
+    pub fn translate(&self, ast: &ParsedUnit<'input>) -> TypedUnit<'input> {
         let mut result = TypedUnit {
             unit_hash: ast.unit_hash,
             unit_name: ast.unit_name,
@@ -298,12 +301,12 @@ impl<'input> IttTreeBuilder<'input> {
                     
                     let translated_ret_type = self.translate_to_itt_type(&function.return_type);
                     
-                    let translated_visibility = self.translate_to_itt_visibility(&function.visibility);
+                    let translated_visibility = self.translate_visibility(&function.visibility);
                     
                     let translated_body = self.translate_node(&function.body);
                     
                     result.unit_content.push(IttDefinitions::Function(IttFunction{
-                        name: &function.name,
+                        name: function.name.to_string(),
                         args: translated_args,
                         return_type: translated_ret_type,
                         visibility: translated_visibility,
@@ -311,7 +314,7 @@ impl<'input> IttTreeBuilder<'input> {
                     }));
                 }
                 
-                _ => panic!()
+                _ => ()
             }
         });
         

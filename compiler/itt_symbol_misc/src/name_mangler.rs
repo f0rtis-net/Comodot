@@ -1,4 +1,4 @@
-use mir::IttType;
+use itt::IttType;
 
 pub fn type_to_char_translator(_type: &IttType) -> Result<char, String> {
     match _type {
@@ -20,10 +20,11 @@ pub fn mangle_function_name(module_name: &str, name: &str, arguments: &Vec<IttTy
         return Ok(String::from("language_main"));
     }
     
+    
     for arg in arguments.iter() {
         arg_prefix.push('_');
         arg_prefix.push(type_to_char_translator(arg)?);
     }
     
-    Ok(format!("__Nm_f_{module_name}_{name}{arg_prefix}"))
+    Ok(format!("__Nm_{module_name}_f_{name}{arg_prefix}"))
 }

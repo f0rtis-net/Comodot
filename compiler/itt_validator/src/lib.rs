@@ -1,20 +1,14 @@
 use itt::{IttDefinitions, IttExprs, TypedNode, TypedUnit};
-use itt_symbol_misc::func_table::FunctionSymbolTable;
-use std::cell::RefCell;
 
 pub struct IttTreeValidator<'input> {
-    function_decls: &'input RefCell<FunctionSymbolTable<'input>>,
-    unit: &'input TypedUnit<'input>
+    name: &'input str
 }
 
 impl<'input> IttTreeValidator<'input> {
     pub fn new(
-        function_decls: &'input RefCell<FunctionSymbolTable<'input>>, 
-        unit: &'input TypedUnit<'input>
     ) -> Self {
         Self {
-            function_decls,
-            unit
+           name: "kek"
         }
     }
     
@@ -51,8 +45,8 @@ impl<'input> IttTreeValidator<'input> {
         }
     }
     
-    pub fn validate_tree(&self) {
-        self.unit.unit_content.iter().for_each(|stmt| {
+    pub fn validate_tree(&self, unit: &TypedUnit) {
+        unit.unit_content.iter().for_each(|stmt| {
             match stmt {
                 IttDefinitions::Function(fun) => {
                     match fun.body.node.as_ref() {

@@ -1,5 +1,4 @@
-extern fn println(arg0: String);
-extern fn readInt() -> Int;
+import include
         
 //test comment 
 fn test_predicate() -> Bool {
@@ -8,26 +7,28 @@ fn test_predicate() -> Bool {
         
 fn test_fn(num: Int) -> Int {
     if test_predicate() {
-        println("guessed!!!");
+        include::println("guessed!!!");
         ret 0;
     } else if num > 0 {
-        println("try harder");
+        include::println("try harder");
         ret 0;
     }
             
-    println("brrr");
+    include::println("brrr");
             
     ret 1;
 }
         
 fn test() {
-    println("hello from void");
+    include::println("hello from void");
 }
         
 pub fn main() -> Int {     
-    Int num = readInt();
+    Int num = include::readInt();
             
     test();
+    
+    include::call_me_from_another_file();
             
     ret test_fn(num);
 }

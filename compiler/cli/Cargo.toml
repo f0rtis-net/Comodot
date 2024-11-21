@@ -8,7 +8,7 @@ ast = {path = "../ast"}
 tokens = {path = "../tokens"}
 lexer = {path = "../lexer"}
 parser = {path = "../parser"}
-mir = {path="../mir"}
+itt = {path="../itt"}
 itt_symbol_misc = {path = "../itt_symbol_misc"}
 itt_resolver = {path = "../itt_resolver"}
 itt_validator = {path = "../itt_validator"}
