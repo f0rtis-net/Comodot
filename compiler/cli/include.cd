@@ -1,6 +1,0 @@
-extern fn println(arg0: String);
-extern fn readInt() -> Int;
-
-pub fn call_me_from_another_file() {
-    println("Hello from another file");
-}

@@ -1,10 +1,9 @@
 use tokens::Token;
 
 #[derive(Debug)]
-pub struct ParsedUnit<'input> {
-    pub unit_hash: &'input str,
-    pub unit_name: &'input str,
-    pub unit_content: Vec<AstDefinitions<'input>>
+pub struct ParsedFile<'input> {
+    pub name: &'input str,
+    pub content: Vec<AstDefinitions<'input>>
 }
 
 #[derive(Debug, Clone)]

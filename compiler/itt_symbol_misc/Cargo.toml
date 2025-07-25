@@ -1,7 +1,0 @@
-[package]
-name = "itt_symbol_misc"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-itt = {path = "../itt"}

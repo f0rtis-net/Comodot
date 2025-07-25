@@ -1,0 +1,12 @@
+[package]
+name = "module_builder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ast = {path = "../ast"}
+tokens = { path = "../tokens" }
+parser = { path = "../parser" }
+middle = { path = "../middle" }
+ast_lowering = { path = "../ast_lowering" }
+types_lowering = {path = "../types_lowering" }

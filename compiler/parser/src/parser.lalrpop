@@ -42,12 +42,11 @@ extern {
 	}
 }
 
-pub Unit: ParsedUnit<'input> = {
+pub Unit: ParsedFile<'input> = {
     <defs: (Definitions)*> => {
-        ParsedUnit {
-            unit_hash: "",
-            unit_name: "",
-            unit_content: defs
+        ParsedFile {
+            name: "",
+            content: defs
         }
     }
 };
