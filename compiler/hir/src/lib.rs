@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HirId(u64);
 
@@ -68,6 +70,7 @@ pub enum HirExprKind<'a> {
     Char(char),
 
     Block(Vec<HirExpr<'a>>),
+
     Call {
         name: &'a str,
         args: Vec<HirExpr<'a>>,

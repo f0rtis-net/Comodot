@@ -1,17 +1,7 @@
-fn test_predicate() -> Bool {
-    ret true;
+fn test(lol: Int) -> Int {
+    ret lol + 2;
 }
-        
-fn test_fn(num: Int) -> Int {
-    if test_predicate() {
-        ret 0;
-    } else if 1 > 0 {
-        ret 0;
-    }
-            
-    ret 1;
-}
-        
+
 pub fn main() -> Int {                
-    ret 10;
+    ret 10 + test(30);
 }

@@ -1,9 +1,11 @@
 use std::{fs::File, io::Read, path::Path};
 
 use ast_lowering::translate_to_hir;
+use hir_resolver::NamesResolver;
+use llvm_codegen::test_gen;
 use middle::GlobalCtx;
 use parser::parse_file;
-use types_lowering::TypeResolver;
+use types_lowering::hir_type_resolution;
 
 pub struct BuildingModule<'a> {
     pub name: &'a str,
@@ -29,7 +31,12 @@ pub fn build_module(module: &BuildingModule) {
 
     let hir = translate_to_hir(global_ctx.get_module_ty_info(), &data);
 
-    let mut ty_resolver = TypeResolver::new();
+    let hir_files = vec![hir];
 
-    ty_resolver.hir_type_resolution(global_ctx.get_module_ty_info(), &vec![hir]);
+    let mut name_resolver = NamesResolver::new();
+    name_resolver.resolve_names(&hir_files);
+
+    hir_type_resolution(&name_resolver, global_ctx.get_module_ty_info(), &hir_files);
+
+    test_gen(&mut global_ctx, &hir_files);
 }

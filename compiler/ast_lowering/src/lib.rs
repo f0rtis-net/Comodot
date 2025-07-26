@@ -1,4 +1,5 @@
 use core::panic;
+use std::cell::Cell;
 
 use ast::{AstDefinitions, AstExpr, ParsedFile};
 use hir::{HirBinOps, HirExpr, HirExprKind, HirFile, HirId, HirModuleItem, HirVisibility};
@@ -74,7 +75,7 @@ fn translate_decls<'a>(expr: &AstExpr<'a>) -> HirExpr<'a> {
             id: HirId::new(), 
             kind: HirExprKind::Call {
                 name: val.name,
-                args: val.args.iter().map(|expr| translate_decls(expr)).collect()
+                args: val.args.iter().map(|expr| translate_decls(expr)).collect(),
             }
         },
 

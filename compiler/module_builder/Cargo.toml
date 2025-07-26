@@ -9,4 +9,6 @@ tokens = { path = "../tokens" }
 parser = { path = "../parser" }
 middle = { path = "../middle" }
 ast_lowering = { path = "../ast_lowering" }
-types_lowering = {path = "../types_lowering" }
+hir_resolver = { path = "../hir_resolver" }
+types_lowering = { path = "../types_lowering" }
+llvm_codegen = { path = "../llvm_codegen" }

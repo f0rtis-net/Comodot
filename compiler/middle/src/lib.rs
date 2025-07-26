@@ -1,4 +1,4 @@
-use std::{collections::HashMap};
+use std::collections::{hash_map::Entry, HashMap};
 
 use hir::HirId;
 
@@ -67,11 +67,20 @@ impl HirModuleTypeTable {
     }
 
     pub fn insert_type(&mut self, hir_id: HirId, ty: TypeInfo) {
-        self.types.insert(hir_id, ty);
+        match self.types.entry(hir_id) {
+            Entry::Occupied(mut entry) => {
+                let existing_info = entry.get_mut();
+            
+                *existing_info = ty;    
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(ty);
+            }
+        }
     }
 
-    pub fn get_type(&self, hir_id: HirId) -> Option<&TypeInfo> {
-        self.types.get(&hir_id)
+    pub fn get_type(&self, hir_id: &HirId) -> Option<&TypeInfo> {
+        self.types.get(hir_id)
     }
 
     pub fn dump(&mut self) {
