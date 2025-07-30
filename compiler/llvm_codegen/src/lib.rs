@@ -8,23 +8,42 @@ use crate::builder::build_llvm_binop;
 
 pub mod builder;
 
-struct VariableEnv<'ctx> {
-    variables: HashMap<String, BasicValueEnum<'ctx>>,
+pub struct VariableEnv<'ctx> {
+    scopes: Vec<HashMap<&'ctx str, BasicValueEnum<'ctx>>>
 }
 
 impl<'ctx> VariableEnv<'ctx> {
     pub fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
+        let mut global = Self {
+            scopes: vec![]
+        };
+        
+        global.push_scope();
+        
+        global
+    }
+
+    pub fn push_scope(&mut self) { self.scopes.push(HashMap::new()); }
+    
+    pub fn pop_scope(&mut self) { self.scopes.pop(); }
+
+    pub fn declare_variable(&mut self, name: &'ctx str, value: BasicValueEnum<'ctx>) -> Result<(), String> {
+        if self.scopes.last_mut().unwrap().insert(name, value).is_some() {
+            Err(String::from("Can not define symbol in enviroment"))
+        } else {
+            Ok(())
         }
     }
 
-    pub fn declare_variable(&mut self, name: &str, ptr: BasicValueEnum<'ctx>) {
-        self.variables.insert(name.to_string(), ptr);
-    }
-
     pub fn get_variable(&self, name: &str) -> Option<BasicValueEnum<'ctx>> {
-        self.variables.get(name).copied()
+        for scope in self.scopes.iter().rev() {
+            match scope.get(name) {
+                Some(value) => return Some(value.clone()),
+                None => continue
+            }
+        }
+        
+        None
     }
 }
 
@@ -38,7 +57,6 @@ fn translate_to_llvm_ty<'input>(context: &'input Context, basic_type: &LangType)
         _ => panic!("Unsupported type: {:?}", basic_type),
     }
 }
-
 
 struct ModuleCodeGenerator<'llvm, 'global: 'llvm> {
     llvm_mod: Module<'llvm>,
@@ -131,7 +149,7 @@ impl<'llvm, 'global: 'llvm> ModuleCodeGenerator<'llvm, 'global> {
             }
 
             HirExprKind::Block(block) => {
-                //self.env_variables.push_scope();
+                self.env_variables.push_scope();
                 
                 let mut return_expr: Option<BasicValueEnum<'llvm>> = None;
                 
@@ -139,7 +157,7 @@ impl<'llvm, 'global: 'llvm> ModuleCodeGenerator<'llvm, 'global> {
                     return_expr = Some(self.generate_inner_decls_ir(f));
                 });
                 
-                //self.env_variables.pop_scope();
+                self.env_variables.pop_scope();
                 
                 return_expr.unwrap()
             }
@@ -227,7 +245,7 @@ impl<'llvm, 'global: 'llvm> ModuleCodeGenerator<'llvm, 'global> {
                         for i in 0..args.len() {
                             let param = signature.get_nth_param(i as u32).unwrap();
                             param.set_name(args[i].0);
-                            self.env_variables.declare_variable(args[i].0, param);
+                            self.env_variables.declare_variable(args[i].0, param).unwrap();
                         }
 
                         let llvm_block = self.llvm_ctx.append_basic_block(signature, "start");
