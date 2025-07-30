@@ -3,5 +3,5 @@ fn test(lol: Int) -> Int {
 }
 
 pub fn main() -> Int {                
-    ret 10 + test(30);
+    ret 10 + test(30) + another();
 }

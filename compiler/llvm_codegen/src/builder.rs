@@ -2,7 +2,7 @@ use hir::HirBinOps;
 use inkwell::{builder::Builder, values::{BasicValue, BasicValueEnum}, FloatPredicate, IntPredicate};
 use middle::ty::{LangType, Primitive};
 
-fn build_sum<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_sum<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) => 
             builder.build_int_add(lhs.into_int_value(), rhs.into_int_value(), "int_add")
@@ -14,7 +14,7 @@ fn build_sum<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValue
     }
 }
 
-fn build_sub<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_sub<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) => 
             builder.build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "int_sub")
@@ -26,7 +26,7 @@ fn build_sub<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValue
     }
 }
 
-fn build_div<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_div<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) => 
             builder.build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "int_div")
@@ -38,7 +38,7 @@ fn build_div<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValue
     }
 }
 
-fn build_mul<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_mul<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) => 
             builder.build_int_mul(lhs.into_int_value(), rhs.into_int_value(), "int_mul")
@@ -50,7 +50,7 @@ fn build_mul<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValue
     }
 }
 
-fn build_gt_compare<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_gt_compare<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) => builder.build_int_compare(IntPredicate::SGT, lhs.into_int_value(), rhs.into_int_value(), "cmpres").unwrap().as_basic_value_enum(),
         LangType::Primitives(Primitive::Float) => builder.build_float_compare(FloatPredicate::OGT, lhs.into_float_value(), rhs.into_float_value(), "cmpres").unwrap().as_basic_value_enum(),
@@ -58,7 +58,7 @@ fn build_gt_compare<'input>(builder: &'input Builder, _type: &LangType, lhs: Bas
     }
 }
 
-fn build_lt_compare<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_lt_compare<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) => builder.build_int_compare(IntPredicate::SLT, lhs.into_int_value(), rhs.into_int_value(), "cmpres").unwrap().as_basic_value_enum(),
         LangType::Primitives(Primitive::Float) => builder.build_float_compare(FloatPredicate::OLT, lhs.into_float_value(), rhs.into_float_value(), "cmpres").unwrap().as_basic_value_enum(),
@@ -66,7 +66,7 @@ fn build_lt_compare<'input>(builder: &'input Builder, _type: &LangType, lhs: Bas
     }
 }
 
-fn build_eq_compare<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_eq_compare<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Int)| LangType::Primitives(Primitive::Char) | LangType::Primitives(Primitive::Bool) => builder.build_int_compare(IntPredicate::EQ, lhs.into_int_value(), rhs.into_int_value(), "cmpres").unwrap().as_basic_value_enum(),
         LangType::Primitives(Primitive::Float) => builder.build_float_compare(FloatPredicate::UEQ, lhs.into_float_value(), rhs.into_float_value(), "cmpres").unwrap().as_basic_value_enum(),
@@ -74,27 +74,27 @@ fn build_eq_compare<'input>(builder: &'input Builder, _type: &LangType, lhs: Bas
     }
 }
 
-fn build_and<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_and<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Bool) => builder.build_and(lhs.into_int_value(), rhs.into_int_value(), "ssl_and").unwrap().as_basic_value_enum(),
         _ => panic!("Invalid type to process [and] operation.")
     }
 }
 
-fn build_or<'input>(builder: &'input Builder, _type: &LangType, lhs: BasicValueEnum<'input>, rhs: BasicValueEnum<'input>) -> BasicValueEnum<'input> {
+fn build_or<'llvm>(builder: &Builder<'llvm>, _type: &LangType, lhs: BasicValueEnum<'llvm>, rhs: BasicValueEnum<'llvm>) -> BasicValueEnum<'llvm> {
     match _type {
         LangType::Primitives(Primitive::Bool) => builder.build_or(lhs.into_int_value(), rhs.into_int_value(), "ssl_or").unwrap().as_basic_value_enum(),
         _ => panic!("Invalid type to process [or] operation.")
     }
 }
 
-pub(crate) fn build_llvm_binop<'input>(
-    builder: &'input Builder,
-    lhs: BasicValueEnum<'input>,
-    rhs: BasicValueEnum<'input>,
+pub(crate) fn build_llvm_binop<'llvm>(
+    builder: &Builder<'llvm>,
+    lhs: BasicValueEnum<'llvm>,
+    rhs: BasicValueEnum<'llvm>,
     op: &HirBinOps,
     binary_ops_type: &LangType
-) -> BasicValueEnum<'input> {
+) -> BasicValueEnum<'llvm> {
     match op {
         HirBinOps::SUM => build_sum(builder, binary_ops_type, lhs, rhs),
         HirBinOps::SUB => build_sub(builder, binary_ops_type, lhs, rhs),

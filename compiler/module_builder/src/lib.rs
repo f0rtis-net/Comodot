@@ -1,11 +1,11 @@
 use std::{fs::File, io::Read, path::Path};
 
 use ast_lowering::translate_to_hir;
-use hir_resolver::NamesResolver;
-use llvm_codegen::test_gen;
+use hir_resolver::resolve_module;
+use llvm_codegen::generate_object_code;
 use middle::GlobalCtx;
 use parser::parse_file;
-use types_lowering::hir_type_resolution;
+use types_lowering::type_hir_module;
 
 pub struct BuildingModule<'a> {
     pub name: &'a str,
@@ -14,29 +14,37 @@ pub struct BuildingModule<'a> {
 }
 
 pub fn build_module(module: &BuildingModule) {
-    let mut file = File::open(module.path).unwrap();
-    
-    let file_name = Path::new(module.path)
+    let mut ctx = GlobalCtx::new(
+        module.name.to_string(), 
+        "x86_64".to_string(), 
+        middle::BuildType::Executable
+    );
+
+    let mut parsed = Vec::new();
+
+    for file in &module.files {
+        let file_name = Path::new(file)
             .file_stem()
             .and_then(|os_str| os_str.to_str())
             .unwrap_or("unknown");
+
+        let mut file = File::open(file).unwrap();
+        let mut content = String::new();
+        file.read_to_string(&mut content).unwrap();
+        let boxed_content = Box::leak(content.into_boxed_str());
+
+        parsed.push(parse_file(file_name, boxed_content));
+    }
+
+    for ast in &parsed {
+        ctx.module_files.push(
+            translate_to_hir(&mut ctx.module_ty_info.borrow_mut(), ast)
+        );
+    }
     
-    let mut content = String::new();
-    file.read_to_string(&mut content).unwrap();
-    let boxed_content = Box::leak(content.into_boxed_str());
-    
-    let data = parse_file(file_name, boxed_content);
+    resolve_module(&mut ctx);
 
-    let mut global_ctx = GlobalCtx::new(module.name.to_string(), String::from("x86_64"), middle::BuildType::Executable);
+    type_hir_module(&mut ctx);
 
-    let hir = translate_to_hir(global_ctx.get_module_ty_info(), &data);
-
-    let hir_files = vec![hir];
-
-    let mut name_resolver = NamesResolver::new();
-    name_resolver.resolve_names(&hir_files);
-
-    hir_type_resolution(&name_resolver, global_ctx.get_module_ty_info(), &hir_files);
-
-    test_gen(&mut global_ctx, &hir_files);
+    generate_object_code(&ctx);
 }

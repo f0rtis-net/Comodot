@@ -1,5 +1,4 @@
 use core::panic;
-use std::cell::Cell;
 
 use ast::{AstDefinitions, AstExpr, ParsedFile};
 use hir::{HirBinOps, HirExpr, HirExprKind, HirFile, HirId, HirModuleItem, HirVisibility};
@@ -147,5 +146,9 @@ pub fn translate_to_hir<'a>(ty_table: &mut HirModuleTypeTable, ast: &'a ParsedFi
         }
     }
 
+    /*for elem in hir.items.iter() {
+       println!("{:?}", elem);
+    }*/
+    
     hir
 }

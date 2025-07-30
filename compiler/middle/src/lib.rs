@@ -1,6 +1,6 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::{cell::RefCell, collections::{hash_map::Entry, HashMap}};
 
-use hir::HirId;
+use hir::{HirFile, HirId};
 
 pub mod ty;
 
@@ -9,43 +9,54 @@ pub enum BuildType {
     ModulePack
 }
 
-pub struct GlobalCtx {
-    module_name: String,
-    module_ty_info: HirModuleTypeTable,
-    module_exports: Vec<HirId>,
-    arch: String,
-    build_type: BuildType
+pub struct GlobalCtx<'a> {
+    pub module_name: String,
+    pub module_ty_info: RefCell<HirModuleTypeTable>,
+    pub module_symbols: RefCell<NamePairs>,
+    pub module_exports: Vec<HirId>,
+    pub module_files: Vec<HirFile<'a>>,
+    pub arch: String,
+    pub build_type: BuildType
 }
 
-impl GlobalCtx {
-    pub fn new(module_name: String, arch: String, build_type: BuildType) -> GlobalCtx {
-        GlobalCtx {
+impl<'a> GlobalCtx<'a> {
+    pub fn new(module_name: String, arch: String, build_type: BuildType) -> Self {
+        Self {
             module_name,
-            module_ty_info: HirModuleTypeTable::new(),
+            module_ty_info: RefCell::new(HirModuleTypeTable::new()),
             module_exports: Vec::new(),
             arch,
+            module_symbols: RefCell::new(NamePairs::new()),
+            module_files: Vec::new(),
             build_type
         }
     }
+}
 
-    pub fn get_build_ty(&self) -> &BuildType {
-        &self.build_type
+#[derive(Debug, Clone, Copy)]
+pub struct SymbolInfo {
+    pub id: HirId,
+    pub is_external_name: bool
+}
+
+
+pub struct NamePairs {
+    pairs: HashMap<HirId, SymbolInfo>,
+}
+
+impl NamePairs {
+    pub fn new() -> NamePairs {
+        NamePairs {
+            pairs: HashMap::new()
+        }
     }
 
-    pub fn get_arch(&self) -> String {
-        self.arch.clone()
+    pub fn add_pair(&mut self, hir_id: HirId, symbol_info: SymbolInfo) {
+        self.pairs.insert(hir_id, symbol_info);
     }
 
-    pub fn get_module_name(&self) -> String {
-        self.module_name.clone()
-    }
-
-    pub fn get_module_ty_info(&mut self) -> &mut HirModuleTypeTable {
-        &mut self.module_ty_info
-    }
-
-    pub fn get_module_exports(&mut self) -> &mut Vec<HirId> {
-        &mut self.module_exports
+    pub fn get_pair(&self, hir_id: &HirId) -> Option<&SymbolInfo> {
+        self.pairs.get(hir_id)
     }
 }
 

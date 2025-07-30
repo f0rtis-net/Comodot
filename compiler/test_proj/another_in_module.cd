@@ -1,0 +1,3 @@
+fn another() -> Int {
+    ret 50;
+}
