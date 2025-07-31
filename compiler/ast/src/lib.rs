@@ -36,13 +36,6 @@ pub struct ExternFnDeclaration<'input> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ArrayDefinition<'input> {
-    pub len: usize,
-    pub name: &'input str,
-    pub elements: Vec<Token<'input>>
-}
-
-#[derive(Debug, Clone)]
 pub struct ArrayAccess<'input> {
     pub alias: &'input str,
     pub index: i64
@@ -65,9 +58,7 @@ pub struct ImportDirective<'input> {
 #[derive(Debug, Clone)]
 pub struct VariableDefinition<'input> {
     pub name: &'input str,
-    pub _type: Token<'input>,
-    pub constant: bool,
-    pub is_global: bool,
+    pub ty: Option<Token<'input>>,
     pub content: Box<AstExpr<'input>>
 }
 

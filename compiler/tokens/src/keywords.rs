@@ -13,6 +13,7 @@ lazy_static! {
         ("false", Token::BOOL(false)),
         ("if", Token::IF),
         ("else", Token::ELSE),
-        ("extern", Token::EXTERN)
+        ("extern", Token::EXTERN),
+        ("val", Token::VAL),
     ]);
 }

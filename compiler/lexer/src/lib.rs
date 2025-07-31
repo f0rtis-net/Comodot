@@ -5,7 +5,6 @@ use crate::cursor::Cursor;
 use crate::DigitBase::DECIMAL;
 
 pub mod cursor;
-mod tests;
 
 pub type LexerResult<Tok, Loc, Err> = Result<(Loc, Tok, Loc), Err>;
 

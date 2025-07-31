@@ -5,6 +5,7 @@ use hir_resolver::resolve_module;
 use llvm_codegen::generate_object_code;
 use middle::GlobalCtx;
 use parser::parse_file;
+use type_checker::validate_hir;
 use types_lowering::type_hir_module;
 
 pub struct BuildingModule<'a> {
@@ -45,6 +46,8 @@ pub fn build_module(module: &BuildingModule) {
     resolve_module(&mut ctx);
 
     type_hir_module(&mut ctx);
+
+    validate_hir(&ctx);
 
     generate_object_code(&ctx);
 }

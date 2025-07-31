@@ -31,7 +31,8 @@ pub enum Token<'input> {
     COMMA,
     COLON,
     IMPORT,
+    EXCLAMATION,
+    VAL,
     URESOLVED,
-    EXCLAMATION
 }
 

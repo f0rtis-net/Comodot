@@ -1,0 +1,8 @@
+[package]
+name = "module_codec"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+middle = { path = "../middle" }
+byteorder = "1.5.0"

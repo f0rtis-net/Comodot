@@ -1,10 +1,10 @@
 use std::{collections::HashMap};
 
-use hir::{HirExpr, HirExprKind, HirModuleItem};
+use hir::{HirExpr, HirExprKind, HirModuleItem, HirVisibility};
 use middle::{GlobalCtx, SymbolInfo};
 
 struct Env<'a> {
-    scopes: Vec<HashMap<&'a str, SymbolInfo>>
+    scopes: Vec<HashMap<&'a str, Vec<SymbolInfo>>>
 }
 
 impl <'a> Env<'a> {
@@ -22,37 +22,36 @@ impl <'a> Env<'a> {
     
     pub fn pop_scope(&mut self) { self.scopes.pop(); }
     
-    pub fn define(&mut self, name: &'a str, value: SymbolInfo) -> Result<(), String> {
-        
-        if self.scopes.last_mut().unwrap().insert(name, value).is_some() {
-            Err(String::from("Can not define symbol in enviroment"))
-        } else {
-            Ok(())
-        }
+    pub fn define(&mut self, name: &'a str, value: SymbolInfo) {
+        self.scopes.last_mut().unwrap()
+            .entry(name)
+            .or_insert(Vec::new())
+            .push(value);  
     }
     
     pub fn lookup(&self, name: &'a str) -> Option<SymbolInfo> {
-
         for scope in self.scopes.iter().rev() {
-            match scope.get(name) {
-                Some(value) => return Some(value.clone()),
-                None => continue
+            if let Some(values) = scope.get(name) {
+                return values.last().cloned();  
             }
         }
-        
         None
     }
 }
 
-fn track_global_names<'a>(env: &mut Env<'a>, ctx: &GlobalCtx<'a>) {
+fn track_global_names<'a>(env: &mut Env<'a>, ctx: &mut GlobalCtx<'a>) {
     for file in &ctx.module_files {
         for item in &file.items {
             match item {
-                HirModuleItem::Func { id, name, .. } => {
+                HirModuleItem::Func { id, name, args: _, body: _, visibility } => {
                     env.define(name, SymbolInfo { 
                         id: id.clone(), 
                         is_external_name: false 
-                    }).unwrap();
+                    });
+
+                    if matches!(visibility, HirVisibility::Public) {
+                        ctx.module_exports.push((name, id.clone()));
+                    }
                 },
             }
         }
@@ -62,14 +61,14 @@ fn track_global_names<'a>(env: &mut Env<'a>, ctx: &GlobalCtx<'a>) {
 fn link_local_names<'a>(env: &mut Env<'a>, ctx: &GlobalCtx<'a>, expr: &HirExpr<'a>) {
     match &expr.kind {
         HirExprKind::Block(block) => {
+            env.push_scope();
             for expr in block {
-                env.push_scope();
                 link_local_names(env, ctx, expr);
-                env.pop_scope();
             }
+            env.pop_scope();
         }
 
-        HirExprKind::Binary { op, lhs, rhs } => {
+        HirExprKind::Binary { op: _, lhs, rhs } => {
             link_local_names(env, ctx, lhs);
             link_local_names(env, ctx, rhs);
         }
@@ -96,8 +95,16 @@ fn link_local_names<'a>(env: &mut Env<'a>, ctx: &GlobalCtx<'a>, expr: &HirExpr<'
             }
         }
 
+        HirExprKind::VarDef { name, value } => {
+            link_local_names(env, ctx, value);
+
+            env.define(name, SymbolInfo {
+                id: expr.id,
+                is_external_name: false
+            });
+        }
+
         HirExprKind::Call { name, args } => {
-            //todo find in top scopes
             for arg in args {
                 link_local_names(env, ctx, arg);
             }
@@ -120,14 +127,14 @@ fn try_to_resolve_locals<'a>(env: &mut Env<'a>, ctx: &GlobalCtx<'a>) {
     for file in &ctx.module_files {
         for item in &file.items {
             match item {
-                HirModuleItem::Func { name, id, args, body, .. } => {
+                HirModuleItem::Func { name: _, id, args, body, .. } => {
                     env.push_scope();
 
                     for arg in args {
                         env.define(arg.0, SymbolInfo { 
                             id: id.clone(), 
                             is_external_name: false 
-                        }).unwrap();
+                        });
                     }
 
                     link_local_names(env, ctx,body);

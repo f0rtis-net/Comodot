@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::{hash_map::Entry, HashMap}};
+use std::{cell::RefCell, collections::{hash_map::{Entry, Iter}, HashMap}};
 
 use hir::{HirFile, HirId};
 
@@ -13,7 +13,7 @@ pub struct GlobalCtx<'a> {
     pub module_name: String,
     pub module_ty_info: RefCell<HirModuleTypeTable>,
     pub module_symbols: RefCell<NamePairs>,
-    pub module_exports: Vec<HirId>,
+    pub module_exports: Vec<(&'a str, HirId)>,
     pub module_files: Vec<HirFile<'a>>,
     pub arch: String,
     pub build_type: BuildType
@@ -58,12 +58,15 @@ impl NamePairs {
     pub fn get_pair(&self, hir_id: &HirId) -> Option<&SymbolInfo> {
         self.pairs.get(hir_id)
     }
+
+    pub fn iter(&self) -> Iter<'_, HirId, SymbolInfo> {
+        self.pairs.iter()
+    }
 }
 
 #[derive(Clone)]
 pub struct TypeInfo {
     pub ty: ty::LangType,
-    pub inferred: bool,
 }
 
 pub struct HirModuleTypeTable {

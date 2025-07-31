@@ -1,5 +1,3 @@
-use std::cell::Cell;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HirId(u64);
 
@@ -88,6 +86,6 @@ pub enum HirExprKind<'a> {
     },
     VarDef {
         name: &'a str,
-        value: Box<HirExpr<'a>>
+        value: Box<HirExpr<'a>>,
     }
 }

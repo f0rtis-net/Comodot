@@ -4,7 +4,7 @@ use hir::{HirExpr, HirExprKind, HirId, HirModuleItem};
 use middle::{ty::{LangType, Primitive}, GlobalCtx, HirModuleTypeTable, TypeInfo};
 
 fn update_type(ty_table: &RefCell<HirModuleTypeTable>, hir_id: HirId, ty: LangType) {
-    ty_table.borrow_mut().insert_type(hir_id, TypeInfo { ty, inferred: false });
+    ty_table.borrow_mut().insert_type(hir_id, TypeInfo { ty });
 }
 
 
@@ -27,22 +27,18 @@ fn infer_expr<'a>(ctx: &GlobalCtx<'a>, expr: &HirExpr) {
     match &expr.kind {
         HirExprKind::Bool(_) => ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo {
             ty: LangType::Primitives(middle::ty::Primitive::Bool),
-            inferred: false
         }),
 
         HirExprKind::Int(_) => ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo {
             ty: LangType::Primitives(middle::ty::Primitive::Int),
-            inferred: false
         }),
 
         HirExprKind::Float(_) => ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo {
             ty: LangType::Primitives(middle::ty::Primitive::Float),
-            inferred: false
         }),
 
         HirExprKind::Char(_) => ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo {
             ty: LangType::Primitives(middle::ty::Primitive::Char),
-            inferred: false
         }),
 
         HirExprKind::Block(block) => {
@@ -63,7 +59,6 @@ fn infer_expr<'a>(ctx: &GlobalCtx<'a>, expr: &HirExpr) {
 
             ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo {
                 ty: lhs_ty.ty.clone(),
-                inferred: false
             });
         }
 
@@ -76,7 +71,7 @@ fn infer_expr<'a>(ctx: &GlobalCtx<'a>, expr: &HirExpr) {
 
         HirExprKind::Return(None) => {}
 
-        HirExprKind::Call { name, args} => {
+        HirExprKind::Call { name: _, args} => {
             for arg in args {
                 infer_expr(ctx, arg);
             }
@@ -104,7 +99,16 @@ fn infer_expr<'a>(ctx: &GlobalCtx<'a>, expr: &HirExpr) {
         HirExprKind::VarDef { name: _, value } => {
             infer_expr(ctx, value);
 
-            ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo { ty: LangType::Primitives(Primitive::Unit), inferred: false });
+            let hinted_type = ctx.module_ty_info.borrow_mut().get_type(&expr.id).cloned();
+
+            if hinted_type.is_some() {
+                let extracted_ty = hinted_type.unwrap().clone();
+                update_type(&ctx.module_ty_info, expr.id, translate_hint_to_type(extracted_ty.ty.clone()));
+                return;
+            }
+
+            let content_type = ctx.module_ty_info.borrow_mut().get_type(&value.id).unwrap().clone();
+            ctx.module_ty_info.borrow_mut().insert_type(expr.id, content_type.clone());
         }
 
         HirExprKind::Id(id) => {
@@ -113,8 +117,6 @@ fn infer_expr<'a>(ctx: &GlobalCtx<'a>, expr: &HirExpr) {
             let old_ty = ctx.module_ty_info.borrow_mut().get_type(&def_id.id).unwrap().clone();
             ctx.module_ty_info.borrow_mut().insert_type(expr.id, old_ty);
         }
-
-        _ => panic!("Not implemented: {:?}", expr.kind)
     }
 }
 
@@ -122,7 +124,7 @@ pub fn type_hir_module(ctx: &mut GlobalCtx) {
     for file in &ctx.module_files {
         for elem in file.items.iter() {
             match elem {
-                HirModuleItem::Func { id, name: _, args, body, .. } => {
+                HirModuleItem::Func { id, name: _, args, .. } => {
                     let old_ty = ctx.module_ty_info.borrow_mut().get_type(id).unwrap().clone();
                     update_type(&ctx.module_ty_info, *id, translate_hint_to_type(old_ty.ty.clone()));
 

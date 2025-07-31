@@ -39,6 +39,7 @@ extern {
         IMPORT => Token::IMPORT,
         EXTERN => Token::EXTERN,
         EXCLAMATION => Token::EXCLAMATION,
+        VAL => Token::VAL
 	}
 }
 
@@ -269,12 +270,15 @@ LogicalExpressions: AstExpr<'input> = {
 };
 
 VarDecl: AstExpr<'input> = {
-    <var_type: Id> <name: Id> ASSIGN <logical_exprs: LogicalExpressions> => {
+    VAL <name: Id> <var_type: (COLON Id)?> ASSIGN <logical_exprs: LogicalExpressions> => {
+        let _type = match var_type {
+            Some((_, ty)) => Some(Token::IDENTIFIER(ty)),
+            None => None
+        };
+
         AstExpr::VarDef( VariableDefinition {
             name,
-            _type: Token::IDENTIFIER(var_type),
-            constant: false,
-            is_global: false,
+            ty: _type,
             content: Box::new(logical_exprs)
         })
     },

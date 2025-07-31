@@ -11,4 +11,7 @@ middle = { path = "../middle" }
 ast_lowering = { path = "../ast_lowering" }
 hir_resolver = { path = "../hir_resolver" }
 types_lowering = { path = "../types_lowering" }
+type_checker = { path = "../type_checker" }
 llvm_codegen = { path = "../llvm_codegen" }
+module_codec = { path = "../module_codec" }
+linker = { path = "../linker" }
