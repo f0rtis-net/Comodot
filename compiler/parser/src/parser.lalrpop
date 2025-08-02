@@ -67,62 +67,37 @@ Definitions: AstDefinitions<'input> = {
     },
     
     <function: FunctionDeclaration> => AstDefinitions::Function(function),
-    
-    <ext_del: ExternFunctionDeclaration> => AstDefinitions::Extern(ext_del),
-};
-
-ExternFunctionDeclaration: ExternFnDeclaration<'input> = {
-    EXTERN FUNCTION <name: IDENTIFIER> <args: FunctionDeclArgs> <ret_type: (MINUS GT IDENTIFIER)?> SEMICOLON => {
-        let ret_t = match ret_type {
-            Some((_, _, _type)) => Token::IDENTIFIER(_type),
-            None => Token::IDENTIFIER("Void")
-        };
-        
-        ExternFnDeclaration {
-            name,
-            args,
-            return_type: ret_t,
-        }
-    }
 };
 
 FunctionDeclaration: AstFunction<'input> = {
-    <visible: (PUBLIC)?> FUNCTION <name: IDENTIFIER> <args: FunctionDeclArgs> <ret_type: (MINUS GT IDENTIFIER)?> <body: Block> => {
+    <visible: (PUBLIC)?> FUNCTION <name: IDENTIFIER> <args: FunctionDeclArgs> <ret_type: (MINUS GT <ExprTy>)?> <body: Block> => {
         let visibility_t = match visible {
             Some(_) => Token::PUBLIC,
             None => Token::PRIVATE
         };
         
-        let ret_t = match ret_type {
-            Some((_, _, _type)) => Token::IDENTIFIER(_type),
-            None => Token::IDENTIFIER("Void")
-        };
-        
         AstFunction {
             name: String::from(name), 
             args,
-            return_type: ret_t,
+            return_type: ret_type,
             visibility: visibility_t,
             body: Box::new(body)
         }
     },
 }
 
-FunctionDeclArgs: Vec<(&'input str, Token<'input>)> = {
-    LBRACKET <arg0:(Id COLON IDENTIFIER)?> <args:(COMMA Id COLON IDENTIFIER)*> RBRACKET => {
-        let mut all_args = vec![];
-        
-        if let Some((id, _, _type)) = arg0 {
-            all_args.push((id, Token::IDENTIFIER(_type)));
-            
-            for (_, id, _, _type) in args {
-                all_args.push((id, Token::IDENTIFIER(_type)));
-            }
-            
-            return all_args;
-        }
+FunctionDeclArg: (&'input str, ExprTy<'input>) = {
+    <id: Id> COLON <ty: ExprTy> => (id, ty)
+};
 
-        all_args
+FunctionDeclArgs: Vec<(&'input str, ExprTy<'input>)> = {
+    LBRACKET RBRACKET => vec![],
+    LBRACKET <first: FunctionDeclArg> <rest: (COMMA FunctionDeclArg)*> RBRACKET => {
+        let mut args = vec![first];
+        for (_, arg) in rest {
+            args.push(arg);
+        }
+        args
     }
 };
 
@@ -270,19 +245,18 @@ LogicalExpressions: AstExpr<'input> = {
 };
 
 VarDecl: AstExpr<'input> = {
-    VAL <name: Id> <var_type: (COLON Id)?> ASSIGN <logical_exprs: LogicalExpressions> => {
-        let _type = match var_type {
-            Some((_, ty)) => Some(Token::IDENTIFIER(ty)),
-            None => None
-        };
-
+    VAL <name: Id> <var_type: (COLON <ExprTy>)?> ASSIGN <logical_exprs: LogicalExpressions> => {
         AstExpr::VarDef( VariableDefinition {
             name,
-            ty: _type,
+            ty: var_type,
             content: Box::new(logical_exprs)
         })
     },
 };
+
+ExprTy: ExprTy<'input> = {
+    <id: Id> => ExprTy::Simple(id),
+}
 
 Return: AstExpr<'input> = {
     RETURN <ret_expr: (LogicalExpressions)?> => {

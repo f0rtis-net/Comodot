@@ -1,22 +1,15 @@
-use std::cell::RefCell;
+use hir::{HirExpr, HirExprKind, HirModuleItem, HirTyHint};
+use middle::{ty::{LangType, Primitive}, GlobalCtx, TypeInfo};
 
-use hir::{HirExpr, HirExprKind, HirId, HirModuleItem};
-use middle::{ty::{LangType, Primitive}, GlobalCtx, HirModuleTypeTable, TypeInfo};
-
-fn update_type(ty_table: &RefCell<HirModuleTypeTable>, hir_id: HirId, ty: LangType) {
-    ty_table.borrow_mut().insert_type(hir_id, TypeInfo { ty });
-}
-
-
-fn translate_hint_to_type(hint: LangType) -> LangType {
+fn translate_hint_to_type<'a>(hint: &HirTyHint<'a>) -> LangType {
     match hint {
-        LangType::HINT(hint) => {
-            match hint.as_str() {
+        HirTyHint::Primitive(hint) => {
+            match *hint {
+                "Bool" => LangType::Primitives(Primitive::Bool),
                 "Int" => LangType::Primitives(Primitive::Int),
                 "Float" => LangType::Primitives(Primitive::Float),
                 "Char" => LangType::Primitives(Primitive::Char),
-                "Bool" => LangType::Primitives(Primitive::Bool),
-                _ => LangType::UNRESOLVED    
+                _ => LangType::UNRESOLVED  
             }
         },
         _ => LangType::UNRESOLVED,
@@ -96,14 +89,12 @@ fn infer_expr<'a>(ctx: &GlobalCtx<'a>, expr: &HirExpr) {
             ctx.module_ty_info.borrow_mut().insert_type(expr.id, then_expr_ty.clone());
         }
 
-        HirExprKind::VarDef { name: _, value } => {
+        HirExprKind::VarDef { name: _, value, ty} => {
             infer_expr(ctx, value);
 
-            let hinted_type = ctx.module_ty_info.borrow_mut().get_type(&expr.id).cloned();
-
-            if hinted_type.is_some() {
-                let extracted_ty = hinted_type.unwrap().clone();
-                update_type(&ctx.module_ty_info, expr.id, translate_hint_to_type(extracted_ty.ty.clone()));
+            if ty.is_some() {
+                let conv_ty = translate_hint_to_type(&ty.clone().unwrap()).clone();
+                ctx.module_ty_info.borrow_mut().insert_type(expr.id, TypeInfo { ty: conv_ty });
                 return;
             }
 
@@ -124,13 +115,18 @@ pub fn type_hir_module(ctx: &mut GlobalCtx) {
     for file in &ctx.module_files {
         for elem in file.items.iter() {
             match elem {
-                HirModuleItem::Func { id, name: _, args, .. } => {
-                    let old_ty = ctx.module_ty_info.borrow_mut().get_type(id).unwrap().clone();
-                    update_type(&ctx.module_ty_info, *id, translate_hint_to_type(old_ty.ty.clone()));
+                HirModuleItem::Func { id, name: _, args, ret_ty, .. } => {
+                    let conv_ty = if ret_ty.is_some() {
+                        translate_hint_to_type(&ret_ty.clone().unwrap()).clone() 
+                    } else {
+                        LangType::Primitives(middle::ty::Primitive::Unit)
+                    };
+
+                    ctx.module_ty_info.borrow_mut().insert_type(id.clone(), TypeInfo { ty: conv_ty });
 
                     for arg in args {
-                        let arg_old_ty = ctx.module_ty_info.borrow_mut().get_type(&arg.1).unwrap().clone();
-                        update_type(&ctx.module_ty_info, arg.1, translate_hint_to_type(arg_old_ty.ty.clone()));
+                        let arg_ty = translate_hint_to_type(&arg.2.clone()).clone();
+                        ctx.module_ty_info.borrow_mut().insert_type(arg.1.clone(), TypeInfo { ty: arg_ty });
                     } 
                 }
             }

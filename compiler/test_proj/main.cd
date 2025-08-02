@@ -1,8 +1,8 @@
-fn test_function(lol: Int) -> Int {
-    val lol: Int = 20.0;
-    ret lol;
+fn test_function(lol: Int, kek: Int) -> Int {
+    val lol: Int = 2;
+    ret lol + 2 + kek;
 }
 
 pub fn main() -> Int {     
-    ret test_function(50) + 1;
+    ret test_function(50, 20) + 1;
 }

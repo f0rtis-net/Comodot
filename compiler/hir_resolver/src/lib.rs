@@ -43,7 +43,7 @@ fn track_global_names<'a>(env: &mut Env<'a>, ctx: &mut GlobalCtx<'a>) {
     for file in &ctx.module_files {
         for item in &file.items {
             match item {
-                HirModuleItem::Func { id, name, args: _, body: _, visibility } => {
+                HirModuleItem::Func { id, name, args: _, body: _, visibility, ret_ty: _ } => {
                     env.define(name, SymbolInfo { 
                         id: id.clone(), 
                         is_external_name: false 
@@ -95,7 +95,7 @@ fn link_local_names<'a>(env: &mut Env<'a>, ctx: &GlobalCtx<'a>, expr: &HirExpr<'
             }
         }
 
-        HirExprKind::VarDef { name, value } => {
+        HirExprKind::VarDef { name, value, ty: _ } => {
             link_local_names(env, ctx, value);
 
             env.define(name, SymbolInfo {

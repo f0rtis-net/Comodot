@@ -273,7 +273,7 @@ impl<'llvm, 'global: 'llvm> ModuleCodeGenerator<'llvm, 'global> {
                 }
             }
 
-            HirExprKind::VarDef { name, value } => {
+            HirExprKind::VarDef { name, value, ..} => {
                 let val: BasicValueEnum<'_> = self.generate_inner_decls_ir(&value);
                 let alloca = self.builder.build_alloca(val.get_type(), name).unwrap();
 
@@ -299,7 +299,7 @@ impl<'llvm, 'global: 'llvm> ModuleCodeGenerator<'llvm, 'global> {
         for file in &self.global_ctx.module_files {
             for decl in &file.items {
                 match decl {
-                    HirModuleItem::Func { id, name, args, body, visibility } => {
+                    HirModuleItem::Func { id, name, args, body, visibility, .. } => {
                         let is_global = match visibility {
                             HirVisibility::Public => true,
                             HirVisibility::Private => false
@@ -308,7 +308,7 @@ impl<'llvm, 'global: 'llvm> ModuleCodeGenerator<'llvm, 'global> {
                         let ret_ty = self.global_ctx.module_ty_info.borrow().get_type(id).cloned().unwrap();
 
                         let arg_types: Vec<_> = args.iter()
-                            .map(|(_, arg_id)| {
+                            .map(|(_, arg_id, _)| {
                                 self.global_ctx.module_ty_info.borrow().get_type(arg_id).unwrap().ty.clone()
                             })
                             .collect();

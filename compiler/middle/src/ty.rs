@@ -12,7 +12,6 @@ pub enum Primitive {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LangType {
     UNRESOLVED,
-    HINT(String),
     Primitives(Primitive),
     StaticArray {
         size: u64,
@@ -43,7 +42,6 @@ impl LangType {
             LangType::Primitives(Primitive::Bool) => "b".into(),
             LangType::Primitives(Primitive::Unit) => "u".into(),
             LangType::StaticArray{ty, size} => format!("[{};{}]", ty.short_text(), size).into(),
-            LangType::HINT(s) => s.into(),
             LangType::UNRESOLVED => "unresolved".into()
         }
     }
@@ -51,11 +49,7 @@ impl LangType {
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             LangType::UNRESOLVED => vec![0],
-            LangType::HINT(s) => {
-                let mut bytes = vec![1];
-                bytes.extend_from_slice(s.as_bytes());
-                bytes
-            }
+  
             LangType::Primitives(p) => {
                 let mut bytes = vec![2];
                 bytes.push(p.to_byte());
@@ -74,7 +68,6 @@ impl LangType {
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         match bytes.get(0)? {
             0 => Some(LangType::UNRESOLVED),
-            1 => Some(LangType::HINT(String::from_utf8(bytes[1..].to_vec()).ok()?)),
             2 => match bytes.get(1)? {
                 0 => Some(LangType::Primitives(Primitive::Int)),
                 1 => Some(LangType::Primitives(Primitive::Float)),

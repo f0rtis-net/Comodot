@@ -39,7 +39,7 @@ pub fn build_module(module: &BuildingModule) {
 
     for ast in &parsed {
         ctx.module_files.push(
-            translate_to_hir(&mut ctx.module_ty_info.borrow_mut(), ast)
+            translate_to_hir(ast)
         );
     }
     

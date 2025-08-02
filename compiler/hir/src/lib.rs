@@ -16,6 +16,12 @@ pub enum HirVisibility {
     Private
 }
 
+#[derive(Debug, Clone)]
+pub enum HirTyHint<'a> {
+    Primitive(&'a str),
+    Array(Box<HirTyHint<'a>>, usize),
+}
+
 #[derive(Debug)]
 pub struct HirFile<'a> {
     pub name: &'a str,
@@ -34,8 +40,9 @@ pub enum HirModuleItem <'a> {
     Func {
         id: HirId,
         name: &'a str,
-        args: Vec<(&'a str, HirId)>,
+        args: Vec<(&'a str, HirId, HirTyHint<'a>)>,
         body: HirExpr<'a>,
+        ret_ty: Option<HirTyHint<'a>>,
         visibility: HirVisibility
     }
 }
@@ -87,5 +94,6 @@ pub enum HirExprKind<'a> {
     VarDef {
         name: &'a str,
         value: Box<HirExpr<'a>>,
+        ty: Option<HirTyHint<'a>>
     }
 }

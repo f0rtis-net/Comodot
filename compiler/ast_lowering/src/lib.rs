@@ -1,8 +1,7 @@
 use core::panic;
 
-use ast::{AstDefinitions, AstExpr, ParsedFile};
-use hir::{HirBinOps, HirExpr, HirExprKind, HirFile, HirId, HirModuleItem, HirVisibility};
-use middle::{ty::LangType, HirModuleTypeTable, TypeInfo};
+use ast::{AstDefinitions, AstExpr, ExprTy, ParsedFile};
+use hir::{HirBinOps, HirExpr, HirExprKind, HirFile, HirId, HirModuleItem, HirTyHint, HirVisibility};
 use tokens::Token;
 
 fn remap_visibility(visibility: &Token) -> HirVisibility {
@@ -28,73 +27,77 @@ fn remap_bin_op(bin_op: &Token) -> HirBinOps {
     }
 }
 
+fn remap_to_hir_ty_hint<'a>(ast_ty: &ExprTy<'a>) -> HirTyHint<'a> {
+    match ast_ty {
+        ExprTy::Simple(ty) => HirTyHint::Primitive(ty),
+        _ => panic!("Unsupported ast type")
+    }
+}
 
-fn translate_decls<'a>(ty_table: &mut HirModuleTypeTable, expr: &AstExpr<'a>) -> HirExpr<'a> {
+fn translate_decls<'a>(expr: &AstExpr<'a>) -> HirExpr<'a> {
     match expr {
         AstExpr::Identifier(id) => HirExpr { 
             id: HirId::new(), 
-            kind: HirExprKind::Id(*id)
+            kind: HirExprKind::Id(*id),
         },
 
         AstExpr::Integer(num) => HirExpr { 
             id: HirId::new(), 
-            kind: HirExprKind::Int(*num)
+            kind: HirExprKind::Int(*num),
         },
 
         AstExpr::Bool(val) => HirExpr { 
             id: HirId::new(), 
-            kind: HirExprKind::Bool(*val)
+            kind: HirExprKind::Bool(*val),
         },
 
         AstExpr::Float(val) => HirExpr { 
             id: HirId::new(), 
-            kind: HirExprKind::Float(*val)
+            kind: HirExprKind::Float(*val),
         },
 
         AstExpr::Block(val) => HirExpr { 
             id: HirId::new(), 
-            kind: HirExprKind::Block(val.iter().map(|expr| translate_decls(ty_table, expr)).collect())
+            kind: HirExprKind::Block(val.iter().map(|expr| translate_decls(expr)).collect()),
         },
 
         AstExpr::Binary(val) => HirExpr { 
             id: HirId::new(), 
             kind: HirExprKind::Binary {
                 op: remap_bin_op(&val.operator),
-                lhs: Box::new(translate_decls(ty_table, &val.lhs)),
-                rhs: Box::new(translate_decls(ty_table, &val.rhs))
-            }
+                lhs: Box::new(translate_decls(&val.lhs)),
+                rhs: Box::new(translate_decls(&val.rhs))
+            },
         },
 
         AstExpr::Return(val) => HirExpr { 
             id: HirId::new(), 
-            kind: HirExprKind::Return(val.clone().map(|expr| Box::new(translate_decls(ty_table, &expr))))
+            kind: HirExprKind::Return(val.clone().map(|expr| Box::new(translate_decls(&expr)))),
         },
 
         AstExpr::Call(val) => HirExpr { 
             id: HirId::new(), 
             kind: HirExprKind::Call {
                 name: val.name,
-                args: val.args.iter().map(|expr| translate_decls(ty_table, expr)).collect(),
-            }
+                args: val.args.iter().map(|expr| translate_decls(expr)).collect(),
+            },
         },
 
         AstExpr::VarDef(val) => { 
             let var_id = HirId::new();
-            if val.ty.is_some() {
-                let tokens::Token::IDENTIFIER(var_ty) = val.ty.unwrap() else {
-                    panic!("Unsupported arg type token");
-                };
 
-                ty_table.insert_type(var_id.clone(), TypeInfo {
-                    ty: LangType::HINT(var_ty.to_string()),
-                });
+            let mut val_ty: Option<HirTyHint<'_>> = None;
+
+            if val.ty.is_some() {
+                val_ty = Some(remap_to_hir_ty_hint(&val.ty.clone().unwrap()));
             }
             
             HirExpr{
                 id: var_id, 
                 kind: HirExprKind::VarDef {
                     name: val.name,
-                    value: Box::new(translate_decls(ty_table, &val.content))
+                    value: Box::new(translate_decls(&val.content)),
+                    ty: val_ty
                 }
             }
         },
@@ -102,17 +105,17 @@ fn translate_decls<'a>(ty_table: &mut HirModuleTypeTable, expr: &AstExpr<'a>) ->
         AstExpr::IfExpr(val) => HirExpr { 
             id: HirId::new(), 
             kind: HirExprKind::If { 
-                cond: Box::new(translate_decls(ty_table, &val.logic_condition)), 
-                then: Box::new(translate_decls(ty_table, &val.if_block)),
-                _else: val.else_block.clone().map(|expr| Box::new(translate_decls(ty_table, &expr)))
-            } 
+                cond: Box::new(translate_decls( &val.logic_condition)), 
+                then: Box::new(translate_decls(&val.if_block)),
+                _else: val.else_block.clone().map(|expr| Box::new(translate_decls(&expr)))
+            },
         },
 
         _ => panic!("Unsupported expression: {:?}", expr)
     }
 }
 
-pub fn translate_to_hir<'a>(ty_table: &mut HirModuleTypeTable, ast: &'a ParsedFile<'a>) -> HirFile<'a> {
+pub fn translate_to_hir<'a>(ast: &'a ParsedFile<'a>) -> HirFile<'a> {
     let mut hir = HirFile {
         name: ast.name,
         items: vec![],
@@ -123,16 +126,7 @@ pub fn translate_to_hir<'a>(ty_table: &mut HirModuleTypeTable, ast: &'a ParsedFi
         match decl {
             AstDefinitions::Function(fun) => {
                 let args = fun.args.iter().map(|arg| {
-                    let id = HirId::new();
-
-                    let tokens::Token::IDENTIFIER(arg_ty) = arg.1 else {
-                        panic!("Unsupported arg type token");
-                    };
-
-                    ty_table.insert_type(id, middle::TypeInfo {
-                        ty: LangType::HINT(arg_ty.to_string()),
-                    });
-                    (arg.0, id)
+                    (arg.0, HirId::new(), remap_to_hir_ty_hint(&arg.1))
                 }).collect();
 
                 let func_id = HirId::new();
@@ -141,16 +135,9 @@ pub fn translate_to_hir<'a>(ty_table: &mut HirModuleTypeTable, ast: &'a ParsedFi
                     id: func_id,
                     name: &fun.name,
                     args,
-                    body: translate_decls(ty_table, &fun.body),
-                    visibility: remap_visibility(&fun.visibility)
-                });
-
-                let tokens::Token::IDENTIFIER(ret_ty) = fun.return_type else {
-                    panic!("Unsupported return type token");
-                };
-
-                ty_table.insert_type(func_id, middle::TypeInfo {
-                    ty: LangType::HINT(ret_ty.to_string()),
+                    body: translate_decls(&fun.body),
+                    visibility: remap_visibility(&fun.visibility),
+                    ret_ty: fun.return_type.as_ref().map(|ret_t|remap_to_hir_ty_hint(ret_t))
                 });
             }
             _=> panic!("Unsupported declaration")

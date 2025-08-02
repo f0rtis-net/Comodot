@@ -29,6 +29,15 @@ pub enum AstExpr<'input> {
 }
 
 #[derive(Debug, Clone)]
+pub enum ExprTy<'input> {
+    Simple(&'input str),
+    Array {
+        elem_ty: Box<ExprTy<'input>>,
+        size: usize,  
+    },
+}
+
+#[derive(Debug, Clone)]
 pub struct ExternFnDeclaration<'input> {
     pub name: &'input str,
     pub args: Vec<(&'input str, Token<'input>)>,
@@ -58,7 +67,7 @@ pub struct ImportDirective<'input> {
 #[derive(Debug, Clone)]
 pub struct VariableDefinition<'input> {
     pub name: &'input str,
-    pub ty: Option<Token<'input>>,
+    pub ty: Option<ExprTy<'input>>,
     pub content: Box<AstExpr<'input>>
 }
 
@@ -79,8 +88,8 @@ pub struct BinaryExpression<'input> {
 #[derive(Debug, Clone)]
 pub struct AstFunction<'input> {
     pub name: String,
-    pub args: Vec<(&'input str, Token<'input>)>,
-    pub return_type: Token<'input>,
+    pub args: Vec<(&'input str, ExprTy<'input>)>,
+    pub return_type: Option<ExprTy<'input>>,
     pub visibility: Token<'input>,
     pub body: Box<AstExpr<'input>>
 }

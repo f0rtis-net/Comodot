@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 hir = { path = "../hir" }
 middle = { path = "../middle" }
+ast = { path = "../ast" }
+tokens = { path = "../tokens" }
